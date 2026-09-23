@@ -36,9 +36,41 @@ server.Run()                         // 阻塞运行，收到 SIGINT/SIGTERM 后
 
 ```go
 cli := tenon.NewCli("myapp", "我的服务")
-cli.AddCommand("version", "打印版本", func() { println("v1.0.0") })
-cli.Run(server)                      // 注册 server 子命令并执行
+cli.AddCommand("version", "打印版本", func() { println("v1.0.0") })  // 简单命令
+cli.Run(server)                    // 注册 server 子命令并执行
 ```
+
+带 flags、位置参数校验与嵌套子命令：
+
+```go
+cli.Add(tenon.Command{
+	Use:   "limit",
+	Short: "限制管理",
+	Sub: []tenon.Command{           // 嵌套子命令
+		{
+			Use:   "unlock <ip>",
+			Short: "解除 IP 限制",
+			Args:  cobra.ExactArgs(1),  // 位置参数校验
+			Flags: []tenon.CmdFlag{     // 类型由 Default 的 Go 类型决定
+				{Name: "force", Shorthand: "f", Usage: "强制解除", Default: false},
+				{Name: "timeout", Usage: "超时时间", Default: 5 * time.Second},
+			},
+			Run: func(cmd *cobra.Command, args []string) {
+				force, _ := cmd.Flags().GetBool("force")  // flags 经 cmd.Flags().GetXxx 读取
+				ip := args[0]
+				...
+			},
+		},
+	},
+})
+```
+
+- `CmdFlag.Default` 支持 string / bool / int / int64 / float64 / time.Duration
+- `cli.Root()` 返回底层 cobra 根命令，框架未封装的能力可直接使用 cobra
+- `cli.ExecuteArgs(args...)` 程序化执行（不读 os.Args、出错返回 error 而不退出），适合测试与嵌入式场景
+- 通用启动参数：`flags := cli.BindFlags()` 提供 `--debug/--data/--config`
+
+完整示例见 [example/cli](../example/cli/main.go)。
 
 ## HTTP 配置说明（tenon.HTTPConfig）
 
