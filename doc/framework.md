@@ -52,6 +52,39 @@ cli.Run(server)                      // 注册 server 子命令并执行
 | AllowOrigins/Methods/Headers | CORS 配置 |
 | ReadTimeout / WriteTimeout | 读写超时，0 表示使用默认值 |
 
+## 配置文件与数据目录（可选封装，与框架默认配置解耦）
+
+tenon 自身不强制配置文件，但提供通用封装供调用方使用：
+
+```go
+// 1. 自定义应用配置结构（可组合 tenon 的各配置结构，也可完全自定义）
+type AppConfig struct {
+	Version string           `json:"version"`
+	HTTP    tenon.HTTPConfig `json:"http"`
+	DB      tenon.DatabaseConfig `json:"db"`
+}
+func (c *AppConfig) SetVersion(v string) { c.Version = v } // 实现版本回写接口（可选）
+
+// 2. CLI 绑定通用启动参数 --debug/--data/--config
+cli := tenon.NewCli("app", "我的服务")
+flags := cli.BindFlags()
+cli.AddCommand("server", "启动服务", func() {
+	configPath := flags.ConfigPath
+	if configPath == "" {
+		configPath = tenon.ResolveDataPath(flags.DataDir, "config.json")
+	}
+	cfg, from, err := tenon.LoadConfig(configPath, defaultAppConfig, "1.0.0")
+	// from: conf.FromCreate(首次生成) / conf.FromLoad(加载合并)
+	...
+})
+```
+
+- `tenon.LoadConfig[T](path, defaults, version)`：文件不存在时按 `defaults()` 生成；存在时先填默认值再反序列化覆盖（**新增字段自动补全**），随后回写文件（含版本号回写，需实现 `SetVersion`）
+- `tenon.ResolveDataPath(dataDir, name)`：相对路径挂到数据目录，绝对路径原样返回
+- 配置文件写入权限 0600，父目录自动创建
+
+完整示例见 [example/config](../example/config/main.go)。
+
 ## 数据库
 
 ```go

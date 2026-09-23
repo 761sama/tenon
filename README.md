@@ -29,6 +29,7 @@ tenon 是一个通用服务框架库，将 Web 服务、数据库、缓存、日
 - Redis 模块：`tenon.Redis` 显式初始化后直接调用（字符串/列表/集合/有序集合/哈希/Lua/原子轮换），支持多实例（InitNamed/Named）
 - 日志模块：logrus + lumberjack 切割，`tenon.InitLog` 显式初始化
 - 统一响应封装与分页工具
+- 配置封装（可选）：泛型配置文件加载（默认生成/字段补全/版本回写）、数据目录解析、CLI `--debug/--data/--config` 启动参数
 - 内置 CLI：默认提供 server 子命令，支持扩展自定义子命令
 
 ## 快速开始
