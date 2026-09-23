@@ -2,7 +2,9 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
@@ -12,33 +14,47 @@ import (
 	"gopkg.761sama.com/tenon/conf"
 )
 
+var (
+	// ErrRedisUnavailable redis 不可用哨兵错误：客户端为 nil 时由各操作返回，供调用方降级处理
+	ErrRedisUnavailable = errors.New("redis unavailable")
+	// ErrRedisNotConfigured redis 未配置哨兵错误：地址为空
+	ErrRedisNotConfigured = errors.New("redis not configured")
+)
+
 var client *goredis.Client
 
-func init() {
-	bootstrap.RegisterInitModule("redis", Init)
-	bootstrap.RegisterRelease("redis", Close)
-}
-
-// 初始化 Redis 模块（由 bootstrap 调用），Enable 为 false 时跳过。
-// 入参: cfg (总配置)
-func Init(cfg conf.Config) {
-	if !cfg.Redis.Enable {
-		return
+// 显式初始化 Redis 客户端并测试连通性；初始化成功后注册停机释放。
+// 入参: cfg (Redis 配置)
+// 出参: 未配置或连接失败时返回错误
+func Init(cfg conf.RedisConfig) error {
+	if cfg.Host == "" || cfg.Port == 0 {
+		return fmt.Errorf("%w: redis address is empty", ErrRedisNotConfigured)
 	}
-	client = goredis.NewClient(&goredis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
+	address := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	rdb := goredis.NewClient(&goredis.Options{
+		Addr:     address,
+		Password: cfg.Password,
+		DB:       cfg.DB,
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := client.Ping(ctx).Err(); err != nil {
-		log.Fatalf("failed to connect redis: %s", err.Error())
+	if _, err := rdb.Ping(ctx).Result(); err != nil {
+		_ = rdb.Close()
+		return fmt.Errorf("failed to connect redis @ %s: %w", address, err)
 	}
-	log.Infof("init redis @ %s:%d/%d", cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.DB)
+	client = rdb
+	bootstrap.RegisterRelease("redis", Close)
+	log.Infof("redis connected @ %s/%d", address, cfg.DB)
+	return nil
 }
 
-// 获取 Redis 客户端，未初始化时返回 nil。
+// Redis 是否可用。
+// 出参: 客户端是否已初始化
+func IsAvailable() bool {
+	return client != nil
+}
+
+// 获取底层 go-redis 客户端，未初始化时返回 nil。
 // 出参: go-redis 客户端
 func Client() *goredis.Client {
 	return client
@@ -54,4 +70,11 @@ func Close() {
 		log.Errorf("failed to close redis: %s", err.Error())
 	}
 	client = nil
+}
+
+// 构建 redis 键：以冒号拼接键片段。
+// 入参: parts (键片段)
+// 出参: 拼接后的完整键
+func BuildKey(parts ...string) string {
+	return strings.Join(parts, ":")
 }

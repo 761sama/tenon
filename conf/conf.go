@@ -9,7 +9,7 @@ type Config struct {
 	HTTP     HTTPConfig     // HTTP 服务配置
 	Log      LogConfig      // 日志配置
 	Database DatabaseConfig // 数据库配置，Type 为空字符串时禁用数据库模块
-	Redis    RedisConfig    // Redis 配置，Enable 为 false 时禁用 Redis 模块
+	Redis    RedisConfig    // Redis 配置，供 tenon.Redis.Init 显式初始化使用
 }
 
 // HTTPConfig 为 Web 服务监听配置。
@@ -56,9 +56,8 @@ type DBNodeConfig struct {
 	TablePrefix string // 表前缀（仅主库生效）
 }
 
-// RedisConfig 为 Redis 配置。
+// RedisConfig 为 Redis 配置（由 tenon.Redis.Init 显式初始化时使用）。
 type RedisConfig struct {
-	Enable   bool   // 是否启用 Redis 模块
 	Host     string // Redis 主机
 	Port     int    // Redis 端口
 	Password string // Redis 密码
@@ -95,9 +94,8 @@ func Default() Config {
 			Replicas: []DBNodeConfig{},
 		},
 		Redis: RedisConfig{
-			Enable: false,
-			Host:   "127.0.0.1",
-			Port:   6379,
+			Host: "127.0.0.1",
+			Port: 6379,
 		},
 	}
 }

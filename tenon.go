@@ -6,11 +6,15 @@ import (
 
 	"gopkg.761sama.com/tenon/common"
 	"gopkg.761sama.com/tenon/conf"
+	"gopkg.761sama.com/tenon/redis"
 	"gopkg.761sama.com/tenon/web"
 )
 
 // Version 框架版本。
 const Version = "0.1.0"
+
+// Redis 操作门面：需先通过 tenon.Redis.Init(tenon.RedisConfig{...}) 显式初始化。
+var Redis = redis.Ops{}
 
 // 配置类型别名，使用方通过 tenon.Config 等即可构造配置。
 type (
@@ -38,7 +42,7 @@ func DefaultConfig() Config {
 	return conf.Default()
 }
 
-// 创建 Web 服务实例：按配置初始化日志/数据库/Redis 等模块并构建 gin 引擎。
+// 创建 Web 服务实例：按配置初始化日志/数据库等模块并构建 gin 引擎。
 // 入参: cfg (总配置)
 // 出参: Web 服务实例
 func WebServer(cfg Config) *WebServerT {

@@ -21,7 +21,6 @@ import (
 	// 触发各功能模块向 bootstrap 注册初始化/释放函数
 	_ "gopkg.761sama.com/tenon/database"
 	_ "gopkg.761sama.com/tenon/logx"
-	_ "gopkg.761sama.com/tenon/redis"
 )
 
 // WebServer Web 服务实例。
@@ -34,7 +33,8 @@ type WebServer struct {
 	stopOnce  sync.Once
 }
 
-// 创建 Web 服务实例：按配置执行 bootstrap 初始化（日志/数据库/Redis），并构建 gin 引擎。
+// 创建 Web 服务实例：按配置执行 bootstrap 初始化（日志/数据库），并构建 gin 引擎。
+// Redis 不随服务自动初始化，需通过 tenon.Redis.Init 显式初始化。
 // 入参: cfg (总配置)
 // 出参: Web 服务实例
 func New(cfg conf.Config) *WebServer {
