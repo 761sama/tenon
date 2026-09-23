@@ -31,8 +31,8 @@ func TestMiddlewareRegistry(t *testing.T) {
 
 // 验证路由注册、中间件执行与统一响应。
 func TestRouterAndResponse(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.HTTP.Port = -1
+	cfg := DefaultHTTPConfig()
+	cfg.Port = -1
 	srv := WebServer(cfg)
 	RegMiddleware("test-auth", func(c *gin.Context) {
 		c.Set("authed", true)
@@ -65,8 +65,8 @@ func TestRouterAndResponse(t *testing.T) {
 
 // 验证路由组前缀与嵌套分组。
 func TestRouterGroup(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.HTTP.Port = -1
+	cfg := DefaultHTTPConfig()
+	cfg.Port = -1
 	srv := WebServer(cfg)
 	v1 := srv.Group("/v1")
 	admin := v1.Group("/admin")
@@ -83,8 +83,8 @@ func TestRouterGroup(t *testing.T) {
 
 // 验证无路由时返回统一错误响应。
 func TestNoRoute(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.HTTP.Port = -1
+	cfg := DefaultHTTPConfig()
+	cfg.Port = -1
 	srv := WebServer(cfg)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/no-such-path", nil)

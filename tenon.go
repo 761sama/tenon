@@ -6,6 +6,8 @@ import (
 
 	"gopkg.761sama.com/tenon/common"
 	"gopkg.761sama.com/tenon/conf"
+	"gopkg.761sama.com/tenon/database"
+	"gopkg.761sama.com/tenon/logx"
 	"gopkg.761sama.com/tenon/redis"
 	"gopkg.761sama.com/tenon/web"
 )
@@ -13,13 +15,17 @@ import (
 // Version 框架版本。
 const Version = "0.1.0"
 
-// Redis 操作门面：需先通过 tenon.Redis.Init(tenon.RedisConfig{...}) 显式初始化。
-var Redis = redis.Ops{}
+// 功能门面：数据库与 Redis 需显式初始化后方可使用。
+var (
+	// DB 数据库门面：先 DB.Init 显式初始化，再使用 RegisterModels/GetDB/Transaction 等
+	DB = database.Ops{}
+	// Redis 操作门面：先 Redis.Init 显式初始化，再使用 Get/Set 等操作
+	Redis = redis.Ops{}
+)
 
-// 配置类型别名，使用方通过 tenon.Config 等即可构造配置。
+// 配置类型别名，使用方通过 tenon.HTTPConfig 等即可构造配置。
 type (
-	Config         = conf.Config         // 总配置
-	HTTPConfig     = conf.HTTPConfig     // HTTP 服务配置
+	HTTPConfig     = conf.HTTPConfig     // HTTP 服务配置（WebServer 仅需此配置）
 	LogConfig      = conf.LogConfig      // 日志配置
 	DatabaseConfig = conf.DatabaseConfig // 数据库组配置
 	DBNodeConfig   = conf.DBNodeConfig   // 数据库节点配置
@@ -28,24 +34,32 @@ type (
 
 // 常用类型别名。
 type (
-	Context      = gin.Context      // 请求上下文
-	HandlerFunc  = gin.HandlerFunc  // 控制器/中间件函数类型
-	WebServerT   = web.WebServer    // Web 服务实例类型
-	RouterGroup  = web.RouterGroup  // 路由组类型
-	ErrorCode    = common.ErrorCode // 错误码
-	PageRequest  = common.PageRequest  // 分页请求
+	Context     = gin.Context      // 请求上下文
+	HandlerFunc = gin.HandlerFunc  // 控制器/中间件函数类型
+	WebServerT  = web.WebServer    // Web 服务实例类型
+	RouterGroup = web.RouterGroup  // 路由组类型
+	ErrorCode   = common.ErrorCode // 错误码
+	PageRequest = common.PageRequest // 分页请求
+	Tx          = database.Tx        // 事务连接类型
 )
 
-// 构造默认配置，使用方在此基础上按需修改后传入 WebServer。
-// 出参: 填充了合理默认值的 Config
-func DefaultConfig() Config {
-	return conf.Default()
+// 构造默认 HTTP 配置，使用方在此基础上按需修改后传入 WebServer。
+// 出参: 填充了合理默认值的 HTTPConfig
+func DefaultHTTPConfig() HTTPConfig {
+	return conf.DefaultHTTPConfig()
 }
 
-// 创建 Web 服务实例：按配置初始化日志/数据库等模块并构建 gin 引擎。
-// 入参: cfg (总配置)
+// 显式初始化日志模块：设置日志级别与文件切割输出；不调用时默认输出到标准错误。
+// 入参: cfg (日志配置), debug (是否调试模式)
+// 出参: 日志目录创建失败时返回错误
+func InitLog(cfg LogConfig, debug bool) error {
+	return logx.Init(cfg, debug)
+}
+
+// 创建 Web 服务实例：构建 gin 引擎（仅依赖 HTTP 配置）。
+// 入参: cfg (HTTP 服务配置)
 // 出参: Web 服务实例
-func WebServer(cfg Config) *WebServerT {
+func WebServer(cfg HTTPConfig) *WebServerT {
 	return web.New(cfg)
 }
 

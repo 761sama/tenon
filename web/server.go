@@ -17,15 +17,11 @@ import (
 	"gopkg.761sama.com/tenon/bootstrap"
 	"gopkg.761sama.com/tenon/common"
 	"gopkg.761sama.com/tenon/conf"
-	"gopkg.761sama.com/tenon/util"
-	// 触发各功能模块向 bootstrap 注册初始化/释放函数
-	_ "gopkg.761sama.com/tenon/database"
-	_ "gopkg.761sama.com/tenon/logx"
 )
 
 // WebServer Web 服务实例。
 type WebServer struct {
-	cfg       conf.Config
+	cfg       conf.HTTPConfig
 	engine    *gin.Engine
 	running   atomic.Bool
 	httpSrv   *http.Server
@@ -33,24 +29,24 @@ type WebServer struct {
 	stopOnce  sync.Once
 }
 
-// 创建 Web 服务实例：按配置执行 bootstrap 初始化（日志/数据库），并构建 gin 引擎。
-// Redis 不随服务自动初始化，需通过 tenon.Redis.Init 显式初始化。
-// 入参: cfg (总配置)
+// 创建 Web 服务实例：构建 gin 引擎。
+// 日志/数据库/Redis 不随服务自动初始化，需分别通过
+// tenon.InitLog / tenon.DB.Init / tenon.Redis.Init 显式初始化。
+// 入参: cfg (HTTP 服务配置)
 // 出参: Web 服务实例
-func New(cfg conf.Config) *WebServer {
+func New(cfg conf.HTTPConfig) *WebServer {
 	if !cfg.Debug {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	common.SetDebug(cfg.Debug)
-	bootstrap.Init(cfg)
 	engine := gin.New()
 	engine.ContextWithFallback = true
-	if err := engine.SetTrustedProxies(cfg.HTTP.TrustedProxies); err != nil {
+	if err := engine.SetTrustedProxies(cfg.TrustedProxies); err != nil {
 		log.Errorf("failed to set trusted proxies: %s", err.Error())
 	}
 	engine.Use(gin.LoggerWithWriter(log.StandardLogger().Out))
 	engine.Use(RecoveryMiddleware())
-	engine.Use(CorsMiddleware(cfg.HTTP))
+	engine.Use(CorsMiddleware(cfg))
 	engine.NoRoute(NoRouteHandle)
 	return &WebServer{cfg: cfg, engine: engine}
 }
@@ -80,15 +76,15 @@ func (s *WebServer) Group(prefix string, handlers ...gin.HandlerFunc) *RouterGro
 // 出参: 启动错误（端口均禁用或 HTTPS 配置不完整时返回错误）
 func (s *WebServer) Start() error {
 	started := false
-	if s.cfg.HTTP.Port != -1 {
-		s.httpSrv = s.buildServer(s.cfg.HTTP.Address, s.cfg.HTTP.Port, false)
+	if s.cfg.Port != -1 {
+		s.httpSrv = s.buildServer(s.cfg.Address, s.cfg.Port, false)
 		started = true
 	}
-	if s.cfg.HTTP.HTTPSPort != -1 {
-		if s.cfg.HTTP.CertFile == "" || s.cfg.HTTP.KeyFile == "" {
+	if s.cfg.HTTPSPort != -1 {
+		if s.cfg.CertFile == "" || s.cfg.KeyFile == "" {
 			return fmt.Errorf("https enabled but cert_file or key_file is empty")
 		}
-		s.httpsSrv = s.buildServer(s.cfg.HTTP.Address, s.cfg.HTTP.HTTPSPort, true)
+		s.httpsSrv = s.buildServer(s.cfg.Address, s.cfg.HTTPSPort, true)
 		started = true
 	}
 	if !started {
@@ -155,16 +151,14 @@ func (s *WebServer) buildServer(address string, port int, tls bool) *http.Server
 	srv := &http.Server{
 		Addr:         base,
 		Handler:      s.engine,
-		ReadTimeout:  s.cfg.HTTP.ReadTimeout,
-		WriteTimeout: s.cfg.HTTP.WriteTimeout,
+		ReadTimeout:  s.cfg.ReadTimeout,
+		WriteTimeout: s.cfg.WriteTimeout,
 	}
 	go func() {
 		var err error
 		if tls {
 			log.Infof("start HTTPS server @ %s", base)
-			certFile := util.ResolveDataPath(s.cfg.DataDir, s.cfg.HTTP.CertFile)
-			keyFile := util.ResolveDataPath(s.cfg.DataDir, s.cfg.HTTP.KeyFile)
-			err = srv.ListenAndServeTLS(certFile, keyFile)
+			err = srv.ListenAndServeTLS(s.cfg.CertFile, s.cfg.KeyFile)
 		} else {
 			log.Infof("start HTTP server @ %s", base)
 			err = srv.ListenAndServe()

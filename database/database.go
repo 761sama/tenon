@@ -20,13 +20,33 @@ type Tx = *gorm.DB
 var (
 	mu               sync.RWMutex
 	db               *gorm.DB
-	registeredModels []any      // 已注册待迁移的模型
-	dbType           string     // 当前数据库类型
+	registeredModels []any  // 已注册待迁移的模型
+	dbType           string // 当前数据库类型
 )
 
-func init() {
-	bootstrap.RegisterInitModule("database", Init)
+// 显式初始化数据库：按配置连接主库与从库，自动迁移已注册模型；初始化成功后注册停机释放。
+// 入参: cfg (数据库配置，Type 为空时返回错误), debug (是否打印 SQL 日志)
+// 出参: 连接或迁移失败时返回错误
+func Init(cfg conf.DatabaseConfig, debug bool) error {
+	if cfg.Type == "" {
+		return fmt.Errorf("database type is empty")
+	}
+	gormDB, err := connect(cfg, debug)
+	if err != nil {
+		return err
+	}
+	mu.Lock()
+	db = gormDB
+	dbType = cfg.Type
+	models := registeredModels
+	mu.Unlock()
+	if len(models) > 0 {
+		if err := autoMigrate(gormDB, cfg.Type, models...); err != nil {
+			return fmt.Errorf("failed to auto migrate database: %w", err)
+		}
+	}
 	bootstrap.RegisterRelease("database", Close)
+	return nil
 }
 
 // 注册模型，模型将在数据库初始化时自动迁移；数据库已初始化时立即迁移。
@@ -40,6 +60,14 @@ func RegisterModels(models ...any) {
 			log.Errorf("failed to auto migrate registered models: %s", err.Error())
 		}
 	}
+}
+
+// 数据库是否可用。
+// 出参: 数据库是否已初始化
+func IsAvailable() bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	return db != nil
 }
 
 // 外部调用 DB，未初始化时返回 nil。
@@ -103,26 +131,4 @@ func Close() {
 		log.Errorf("failed to close database: %s", err.Error())
 	}
 	db = nil
-}
-
-// 初始化数据库模块（由 bootstrap 调用），Type 为空时跳过。
-// 入参: cfg (总配置)
-func Init(cfg conf.Config) {
-	if cfg.Database.Type == "" {
-		return
-	}
-	gormDB, err := connect(cfg)
-	if err != nil {
-		log.Fatalf("failed to init database: %s", err.Error())
-	}
-	mu.Lock()
-	db = gormDB
-	dbType = cfg.Database.Type
-	models := registeredModels
-	mu.Unlock()
-	if len(models) > 0 {
-		if err := autoMigrate(gormDB, cfg.Database.Type, models...); err != nil {
-			log.Fatalf("failed to auto migrate database: %s", err.Error())
-		}
-	}
 }

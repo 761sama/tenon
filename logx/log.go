@@ -8,9 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/natefinch/lumberjack"
 
-	"gopkg.761sama.com/tenon/bootstrap"
 	"gopkg.761sama.com/tenon/conf"
-	"gopkg.761sama.com/tenon/util"
 )
 
 func init() {
@@ -21,37 +19,36 @@ func init() {
 		FullTimestamp:             true,
 	}
 	log.SetFormatter(&formatter)
-	bootstrap.RegisterInitModule("log", Init)
 }
 
-// 初始化日志模块：按配置设置日志级别与文件切割输出。
-// 入参: cfg (总配置)
-func Init(cfg conf.Config) {
-	if cfg.Debug {
+// 显式初始化日志模块：设置日志级别与文件切割输出；不调用时默认输出到标准错误。
+// 入参: cfg (日志配置), debug (是否调试模式)
+// 出参: 日志目录创建失败时返回错误
+func Init(cfg conf.LogConfig, debug bool) error {
+	if debug {
 		log.SetLevel(log.DebugLevel)
 		log.SetReportCaller(true)
 	} else {
 		log.SetLevel(log.InfoLevel)
 		log.SetReportCaller(false)
 	}
-	if cfg.Log.Enable {
-		logFile := util.ResolveDataPath(cfg.DataDir, cfg.Log.Name)
-		dir := filepath.Dir(logFile)
+	if cfg.Enable {
+		dir := filepath.Dir(cfg.Name)
 		if err := os.MkdirAll(dir, 0o750); err != nil {
-			log.Errorf("failed to create log directory: %s", err.Error())
-			return
+			return err
 		}
 		var w io.Writer = &lumberjack.Logger{
-			Filename:   logFile,
-			MaxSize:    cfg.Log.MaxSize,
-			MaxBackups: cfg.Log.MaxBackups,
-			MaxAge:     cfg.Log.MaxAge,
-			Compress:   cfg.Log.Compress,
+			Filename:   cfg.Name,
+			MaxSize:    cfg.MaxSize,
+			MaxBackups: cfg.MaxBackups,
+			MaxAge:     cfg.MaxAge,
+			Compress:   cfg.Compress,
 		}
-		if cfg.Debug {
+		if debug {
 			w = io.MultiWriter(os.Stdout, w)
 		}
 		log.SetOutput(w)
 	}
 	log.Infof("init logrus...")
+	return nil
 }

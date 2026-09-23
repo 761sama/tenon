@@ -16,24 +16,23 @@ import (
 	mysqldriver "github.com/go-sql-driver/mysql"
 
 	"gopkg.761sama.com/tenon/conf"
-	"gopkg.761sama.com/tenon/util"
 )
 
 // 按配置建立数据库连接（含主从）。
-// 入参: cfg (总配置)
+// 入参: cfg (数据库配置), debug (是否打印 SQL 日志)
 // 出参: gorm 数据库连接与错误
-func connect(cfg conf.Config) (*gorm.DB, error) {
+func connect(cfg conf.DatabaseConfig, debug bool) (*gorm.DB, error) {
 	logLevel := logger.Silent
-	if cfg.Debug {
+	if debug {
 		logLevel = logger.Info
 	}
-	masterDialector, err := buildDialector(cfg, cfg.Database.Master)
+	masterDialector, err := buildDialector(cfg.Type, cfg.Master)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build master database dialector: %w", err)
 	}
 	gormConfig := &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
-			TablePrefix: cfg.Database.Master.TablePrefix,
+			TablePrefix: cfg.Master.TablePrefix,
 		},
 		Logger: logger.Default.LogMode(logLevel),
 	}
@@ -41,10 +40,10 @@ func connect(cfg conf.Config) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect master database: %w", err)
 	}
-	if len(cfg.Database.Replicas) > 0 {
+	if len(cfg.Replicas) > 0 {
 		var replicaDialectors []gorm.Dialector
-		for _, replica := range cfg.Database.Replicas {
-			d, err := buildDialector(cfg, replica)
+		for _, replica := range cfg.Replicas {
+			d, err := buildDialector(cfg.Type, replica)
 			if err != nil {
 				continue
 			}
@@ -63,20 +62,19 @@ func connect(cfg conf.Config) (*gorm.DB, error) {
 }
 
 // 构建单个节点的数据库 dialector。
-// 入参: cfg (总配置), node (节点配置)
+// 入参: dbType (数据库类型), node (节点配置)
 // 出参: dialector 与错误
-func buildDialector(cfg conf.Config, node conf.DBNodeConfig) (gorm.Dialector, error) {
-	switch cfg.Database.Type {
+func buildDialector(dbType string, node conf.DBNodeConfig) (gorm.Dialector, error) {
+	switch dbType {
 	case "sqlite3", "sqlite":
 		if !(strings.HasSuffix(node.DBFile, ".db") && len(node.DBFile) > 3) {
 			return nil, fmt.Errorf("database file name must end with .db")
 		}
-		dbFile := util.ResolveDataPath(cfg.DataDir, node.DBFile)
-		dir := filepath.Dir(dbFile)
+		dir := filepath.Dir(node.DBFile)
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return nil, fmt.Errorf("failed to create database directory: %w", err)
 		}
-		return sqlite.Open(fmt.Sprintf("%s?_journal=WAL&_vacuum=incremental", dbFile)), nil
+		return sqlite.Open(fmt.Sprintf("%s?_journal=WAL&_vacuum=incremental", node.DBFile)), nil
 	case "mysql":
 		port := node.Port
 		if port <= 0 {
@@ -105,6 +103,6 @@ func buildDialector(cfg conf.Config, node conf.DBNodeConfig) (gorm.Dialector, er
 	case "kingbase":
 		return nil, fmt.Errorf("kingbase driver not yet implemented")
 	default:
-		return nil, fmt.Errorf("unsupported database type: %s", cfg.Database.Type)
+		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}
 }
