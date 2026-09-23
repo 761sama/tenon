@@ -47,6 +47,7 @@ cli.Run(server)                      // 注册 server 子命令并执行
 | Debug | 调试模式：gin 调试模式、错误不脱敏 |
 | Port / HTTPSPort | 监听端口，-1 表示禁用对应协议 |
 | CertFile / KeyFile | HTTPS 证书（相对路径基于工作目录解析） |
+| EnableQUIC | 启用 QUIC (HTTP/3)：与 HTTPS 同地址监听，TLS 请求自动附加 `Alt-Svc: h3=":端口"` 响应头引导客户端升级 |
 | TrustedProxies | 可信代理，防止 X-Forwarded-For 伪造 |
 | AllowOrigins/Methods/Headers | CORS 配置 |
 | ReadTimeout / WriteTimeout | 读写超时，0 表示使用默认值 |
@@ -147,7 +148,7 @@ common.PageSizeCheck(page, pageSize)   // 分页参数修正
 
 `server.Run()` 阻塞等待 SIGINT/SIGTERM，收到信号后：
 
-1. 按超时优雅关闭 HTTP/HTTPS 监听
+1. 按超时优雅关闭 HTTP/HTTPS/QUIC 监听
 2. 按注册逆序执行 `bootstrap` 释放函数（Redis -> 数据库）
 
 也可手动控制：`server.Start()` 非阻塞启动，`server.Stop(timeout)` 停止。
