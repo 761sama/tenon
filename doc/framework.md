@@ -134,6 +134,7 @@ tenon.DB.Transaction(func(tx tenon.Tx) error { ... })
 tenon.DB.GetDBWithTx(tx)                          // dao 层兼容事务
 tenon.DB.ColumnName("name")                       // 列名引用兼容（仅可信常量，非法输入 panic）
 tenon.DB.SafeColumnName(input)                    // 列名引用兼容（返回 error，用于不可信输入）
+tenon.DB.QuoteColumn("postgres", "t.name")        // 按类型加引用符：postgres/kingbase 双引号，其余默认反引号
 tenon.DB.IsAvailable()                            // 是否已初始化
 ```
 

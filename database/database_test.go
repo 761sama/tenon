@@ -254,3 +254,25 @@ func TestColumnName(t *testing.T) {
 	}()
 	ColumnName("user`; DROP TABLE users; --")
 }
+
+// 验证按数据库类型的引用符兼容函数。
+func TestQuoteColumn(t *testing.T) {
+	got, err := QuoteColumn("postgres", "t.name")
+	if err != nil || got != `"t"."name"` {
+		t.Fatalf("postgres should use double quotes: %q, %v", got, err)
+	}
+	got, err = QuoteColumn("kingbase", "name")
+	if err != nil || got != `"name"` {
+		t.Fatalf("kingbase should use double quotes: %q, %v", got, err)
+	}
+	// 空与未知类型默认反引号，继续适配 mysql/sqlite
+	for _, typ := range []string{"", "mysql", "sqlite3", "oracle"} {
+		got, err = QuoteColumn(typ, "name")
+		if err != nil || got != "`name`" {
+			t.Fatalf("type %q should default to backticks: %q, %v", typ, got, err)
+		}
+	}
+	if _, err := QuoteColumn("postgres", "bad name"); err == nil {
+		t.Fatal("invalid name should be rejected")
+	}
+}

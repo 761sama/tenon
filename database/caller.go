@@ -66,3 +66,8 @@ func (Ops) ColumnName(name string) string { return ColumnName(name) }
 // 入参: name (列名)
 // 出参: 带引用符的列名与校验错误
 func (Ops) SafeColumnName(name string) (string, error) { return SafeColumnName(name) }
+
+// 按数据库类型为列名加引用符：postgres/kingbase 双引号，其余默认反引号。
+// 入参: dbType (数据库类型), name (列名)
+// 出参: 带引用符的列名与校验错误
+func (Ops) QuoteColumn(dbType, name string) (string, error) { return QuoteColumn(dbType, name) }

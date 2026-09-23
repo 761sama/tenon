@@ -248,6 +248,19 @@ func (i *Instance) ColumnName(name string) string {
 // 入参: name (列名)
 // 出参: 带引用符的列名与校验错误
 func (i *Instance) SafeColumnName(name string) (string, error) {
+	dbType := ""
+	if i != nil {
+		dbType = i.dbType
+	}
+	return QuoteColumn(dbType, name)
+}
+
+// 按数据库类型为列名加引用符（注入防护）：postgres/kingbase 用双引号，
+// 其余类型（含空与未知类型）默认反引号，继续适配 mysql/sqlite。
+// 仅允许字母/数字/下划线组成的标识符（支持 table.column 点号分段），拒绝其他输入。
+// 入参: dbType (数据库类型), name (列名)
+// 出参: 带引用符的列名与校验错误
+func QuoteColumn(dbType, name string) (string, error) {
 	parts := strings.Split(name, ".")
 	for _, p := range parts {
 		if !identifierPattern.MatchString(p) {
@@ -255,7 +268,7 @@ func (i *Instance) SafeColumnName(name string) (string, error) {
 		}
 	}
 	quote := "`"
-	if i != nil && (i.dbType == "postgres" || i.dbType == "kingbase") {
+	if dbType == "postgres" || dbType == "kingbase" {
 		quote = `"`
 	}
 	for j, p := range parts {
