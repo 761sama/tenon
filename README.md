@@ -26,7 +26,7 @@ tenon 是一个通用服务框架库，将 Web 服务、数据库、缓存、日
 - Web 服务：基于 gin，支持 HTTP/HTTPS、CORS、优雅停机、路由组
 - 中间件注册制：`tenon.RegMiddleware` 注册，`tenon.Middleware` 取用
 - 数据库模块：gorm 封装，支持 sqlite3 / mysql 与主从读写分离，模型注册制自动迁移
-- Redis 模块：go-redis 封装，可插拔启用
+- Redis 模块：go-redis 封装，`tenon.Redis` 显式初始化后直接调用（字符串/列表/集合/有序集合/哈希/Lua/原子轮换）
 - 日志模块：logrus + lumberjack 切割
 - 统一响应封装与分页工具
 - 内置 CLI：默认提供 server 子命令，支持扩展自定义子命令

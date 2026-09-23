@@ -49,7 +49,29 @@ cli.Run(server)                    // 注册 server 子命令并执行
 | Log.Enable | 是否写日志文件（lumberjack 切割） |
 | Database.Type | `sqlite3` / `mysql`，空字符串禁用数据库模块 |
 | Database.Master / Replicas | 主库与从库（从库经 dbresolver 随机读写分离） |
-| Redis.Enable | 是否启用 Redis 模块 |
+| Redis | 供 `tenon.Redis.Init(cfg.Redis)` 显式初始化使用，不随 WebServer 自动初始化 |
+
+## Redis
+
+Redis 采用**显式初始化**，不随 `tenon.WebServer` 自动初始化：
+
+```go
+err := tenon.Redis.Init(tenon.RedisConfig{Host: "127.0.0.1", Port: 6379})
+tenon.Redis.Set("value", "key1", "key2")        // 键片段以冒号拼接为 key1:key2
+val, _ := tenon.Redis.Get("key1", "key2")
+tenon.Redis.SetWithTTL("v", time.Minute, "k")   // 带过期时间
+tenon.Redis.LRPush([]string{"a"}, "list")       // 列表
+tenon.Redis.SAdd([]string{"x"}, "set")          // 集合
+tenon.Redis.ZAdd(zs, "zset")                    // 有序集合
+tenon.Redis.HSet(map[string]any{"f": "v"}, "h") // 哈希
+tenon.Redis.Incr("counter")                     // 自增
+tenon.Redis.Eval(script, args, "key")           // Lua 脚本
+tenon.Redis.Rotate(data, ttl, oldKey, newKey)   // 原子轮换（并发安全的旧键消费）
+tenon.Redis.Client()                            // 获取底层 go-redis 客户端
+```
+
+- 未初始化或连接不可用时，各操作返回哨兵错误 `redis.ErrRedisUnavailable`，供调用方降级处理
+- 初始化成功后自动注册停机释放，`server.Stop` 时会一并关闭连接
 
 ## 中间件
 
