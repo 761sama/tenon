@@ -15,8 +15,11 @@ type HTTPConfig struct {
 	AllowOrigins   []string      `json:"allow_origins"`   // CORS 允许的来源列表，["*"] 表示允许所有来源
 	AllowMethods   []string      `json:"allow_methods"`   // CORS 允许的请求方法列表
 	AllowHeaders   []string      `json:"allow_headers"`   // CORS 允许的请求头列表
-	ReadTimeout    time.Duration `json:"read_timeout"`    // 读超时（纳秒），0 表示使用默认值
-	WriteTimeout   time.Duration `json:"write_timeout"`   // 写超时（纳秒），0 表示使用默认值
+	MaxBodySize    int64         `json:"max_body_size"`   // 请求体最大字节数，0 使用默认值 32MB，负数表示不限制
+	ReadHeaderTimeout time.Duration `json:"read_header_timeout"` // 读取请求头超时（防 Slowloris），0 使用默认值 10s
+	ReadTimeout    time.Duration `json:"read_timeout"`    // 读超时（纳秒），0 使用默认值 30s
+	WriteTimeout   time.Duration `json:"write_timeout"`   // 写超时（纳秒），0 使用默认值 30s
+	IdleTimeout    time.Duration `json:"idle_timeout"`    // Keep-Alive 空闲连接超时，0 使用默认值 120s
 }
 
 // 构造默认 HTTP 配置，使用方可在此基础上按需修改。
@@ -31,8 +34,11 @@ func DefaultHTTPConfig() HTTPConfig {
 		AllowOrigins:   []string{"*"},
 		AllowMethods:   []string{"*"},
 		AllowHeaders:   []string{"*"},
-		ReadTimeout:    30 * time.Second,
-		WriteTimeout:   30 * time.Second,
+		MaxBodySize:       32 << 20,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 }
 

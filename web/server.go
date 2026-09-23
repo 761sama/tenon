@@ -49,6 +49,7 @@ func New(cfg conf.HTTPConfig) *WebServer {
 	engine.Use(gin.LoggerWithWriter(log.StandardLogger().Out))
 	engine.Use(RecoveryMiddleware())
 	engine.Use(CorsMiddleware(cfg))
+	engine.Use(MaxBodySizeMiddleware(cfg.MaxBodySize))
 	engine.NoRoute(NoRouteHandle)
 	// QUIC 启用时注册 Alt-Svc 中间件（须在任何 ListenAndServe 之前完成）
 	if cfg.EnableQUIC {
@@ -154,17 +155,36 @@ func (s *WebServer) IsRunning() bool {
 	return s.running.Load()
 }
 
+// 构建 HTTP 服务器（纯构造，不启动监听）：应用超时配置，零值回落到安全默认值。
+// 入参: address (监听地址), port (端口)
+// 出参: http.Server 实例
+func (s *WebServer) newHTTPServer(address string, port int) *http.Server {
+	return &http.Server{
+		Addr:              fmt.Sprintf("%s:%d", address, port),
+		Handler:           s.engine,
+		ReadHeaderTimeout: durationOrDefault(s.cfg.ReadHeaderTimeout, 10*time.Second),
+		ReadTimeout:       durationOrDefault(s.cfg.ReadTimeout, 30*time.Second),
+		WriteTimeout:      durationOrDefault(s.cfg.WriteTimeout, 30*time.Second),
+		IdleTimeout:       durationOrDefault(s.cfg.IdleTimeout, 120*time.Second),
+	}
+}
+
+// 时长零值回落到默认值（零值在 http.Server 中表示无超时，存在慢连接风险）。
+// 入参: v (配置值), def (默认值)
+// 出参: 实际使用的时长
+func durationOrDefault(v, def time.Duration) time.Duration {
+	if v <= 0 {
+		return def
+	}
+	return v
+}
+
 // 构建并启动单个 HTTP/HTTPS 监听。
 // 入参: address (监听地址), port (端口), tls (是否启用 TLS)
 // 出参: http.Server 实例
 func (s *WebServer) buildServer(address string, port int, tls bool) *http.Server {
-	base := fmt.Sprintf("%s:%d", address, port)
-	srv := &http.Server{
-		Addr:         base,
-		Handler:      s.engine,
-		ReadTimeout:  s.cfg.ReadTimeout,
-		WriteTimeout: s.cfg.WriteTimeout,
-	}
+	srv := s.newHTTPServer(address, port)
+	base := srv.Addr
 	go func() {
 		var err error
 		if tls {

@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -156,5 +157,67 @@ func TestQUICRequiresHTTPS(t *testing.T) {
 	}
 	if srv.quicSrv != nil {
 		t.Fatal("quic should not start without https")
+	}
+}
+
+// 验证请求体大小限制：超限返回 413，未超限正常处理。
+func TestMaxBodySize(t *testing.T) {
+	cfg := conf.DefaultHTTPConfig()
+	cfg.Port = -1
+	cfg.MaxBodySize = 16
+	srv := New(cfg)
+	srv.Router("POST", "/echo", func(c *gin.Context) {
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			c.Status(http.StatusRequestEntityTooLarge)
+			return
+		}
+		c.String(200, string(body))
+	})
+	// 超限（Content-Length 已知）
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/echo", strings.NewReader(strings.Repeat("x", 32)))
+	srv.Engine().ServeHTTP(w, req)
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized body should be 413: %d", w.Code)
+	}
+	// 未超限
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/echo", strings.NewReader("ok"))
+	srv.Engine().ServeHTTP(w, req)
+	if w.Code != http.StatusOK || w.Body.String() != "ok" {
+		t.Fatalf("normal body should pass: %d %s", w.Code, w.Body.String())
+	}
+	// 超限（无 Content-Length，chunked 由 MaxBytesReader 兜底）
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/echo", io.NopCloser(strings.NewReader(strings.Repeat("x", 32))))
+	req.ContentLength = -1
+	srv.Engine().ServeHTTP(w, req)
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("chunked oversized body should be 413: %d", w.Code)
+	}
+}
+
+// 验证超时配置：零值回落默认值，显式配置生效。
+func TestTimeoutConfig(t *testing.T) {
+	cfg := conf.DefaultHTTPConfig()
+	cfg.Port = -1
+	srv := New(cfg)
+	httpSrv := srv.newHTTPServer("127.0.0.1", 8080)
+	if httpSrv.ReadHeaderTimeout != 10*time.Second || httpSrv.IdleTimeout != 120*time.Second {
+		t.Fatalf("unexpected default timeouts: header=%v idle=%v", httpSrv.ReadHeaderTimeout, httpSrv.IdleTimeout)
+	}
+	cfg.ReadHeaderTimeout = 3 * time.Second
+	cfg.IdleTimeout = 60 * time.Second
+	srv = New(cfg)
+	httpSrv = srv.newHTTPServer("127.0.0.1", 8080)
+	if httpSrv.ReadHeaderTimeout != 3*time.Second || httpSrv.IdleTimeout != 60*time.Second {
+		t.Fatalf("explicit timeouts should be respected: header=%v idle=%v", httpSrv.ReadHeaderTimeout, httpSrv.IdleTimeout)
+	}
+	// 零值配置也应回落默认值（而非无超时）
+	srv = New(conf.HTTPConfig{Port: -1})
+	httpSrv = srv.newHTTPServer("127.0.0.1", 8080)
+	if httpSrv.ReadHeaderTimeout <= 0 || httpSrv.ReadTimeout <= 0 || httpSrv.WriteTimeout <= 0 || httpSrv.IdleTimeout <= 0 {
+		t.Fatal("zero config should fall back to safe defaults")
 	}
 }

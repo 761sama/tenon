@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/http"
 	"runtime/debug"
 
 	"github.com/gin-contrib/cors"
@@ -26,7 +27,7 @@ func RecoveryMiddleware() gin.HandlerFunc {
 	}
 }
 
-// 跨域资源共享 (CORS) 中间件。
+// 跨域资源共享 (CORS) 中间件，空配置回落到允许所有来源。
 // 入参: cfg (HTTP 配置)
 // 出参: gin 中间件函数
 func CorsMiddleware(cfg conf.HTTPConfig) gin.HandlerFunc {
@@ -34,7 +35,40 @@ func CorsMiddleware(cfg conf.HTTPConfig) gin.HandlerFunc {
 	config.AllowOrigins = cfg.AllowOrigins
 	config.AllowHeaders = cfg.AllowHeaders
 	config.AllowMethods = cfg.AllowMethods
+	if len(config.AllowOrigins) == 0 {
+		config.AllowOrigins = []string{"*"}
+	}
+	if len(config.AllowMethods) == 0 {
+		config.AllowMethods = []string{"*"}
+	}
+	if len(config.AllowHeaders) == 0 {
+		config.AllowHeaders = []string{"*"}
+	}
 	return cors.New(config)
+}
+
+// 请求体大小限制中间件：Content-Length 超限直接 413；
+// 同时以 MaxBytesReader 包裹请求体，覆盖 chunked 传输场景。
+// 入参: max (最大字节数，负数表示不限制，0 使用默认值 32MB)
+// 出参: gin 中间件函数
+func MaxBodySizeMiddleware(max int64) gin.HandlerFunc {
+	if max == 0 {
+		max = 32 << 20
+	}
+	return func(c *gin.Context) {
+		if max < 0 {
+			c.Next()
+			return
+		}
+		if c.Request.ContentLength > max {
+			c.AbortWithStatus(http.StatusRequestEntityTooLarge)
+			return
+		}
+		if c.Request.Body != nil {
+			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, max)
+		}
+		c.Next()
+	}
 }
 
 // 全局无路由处理。
