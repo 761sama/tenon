@@ -10,6 +10,7 @@ type HTTPConfig struct {
 	HTTPSPort      int           // HTTPS 端口，-1 表示禁用 HTTPS
 	CertFile       string        // TLS 证书文件路径（相对路径基于工作目录解析）
 	KeyFile        string        // TLS 私钥文件路径（相对路径基于工作目录解析）
+	EnableQUIC     bool          // 是否启用 QUIC (HTTP/3)，与 HTTPS 同地址监听并自动附加 Alt-Svc 响应头
 	TrustedProxies []string      // 可信反向代理 IP/IP 段(CIDR)，为空表示不信任任何代理
 	AllowOrigins   []string      // CORS 允许的来源列表，["*"] 表示允许所有来源
 	AllowMethods   []string      // CORS 允许的请求方法列表

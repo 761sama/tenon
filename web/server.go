@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/quic-go/quic-go/http3"
 	log "github.com/sirupsen/logrus"
 
 	"gopkg.761sama.com/tenon/bootstrap"
@@ -26,6 +27,7 @@ type WebServer struct {
 	running   atomic.Bool
 	httpSrv   *http.Server
 	httpsSrv  *http.Server
+	quicSrv   *http3.Server
 	stopOnce  sync.Once
 }
 
@@ -48,6 +50,10 @@ func New(cfg conf.HTTPConfig) *WebServer {
 	engine.Use(RecoveryMiddleware())
 	engine.Use(CorsMiddleware(cfg))
 	engine.NoRoute(NoRouteHandle)
+	// QUIC 启用时注册 Alt-Svc 中间件（须在任何 ListenAndServe 之前完成）
+	if cfg.EnableQUIC {
+		engine.Use(AltSvcMiddleware(cfg.HTTPSPort))
+	}
 	return &WebServer{cfg: cfg, engine: engine}
 }
 
@@ -85,6 +91,10 @@ func (s *WebServer) Start() error {
 			return fmt.Errorf("https enabled but cert_file or key_file is empty")
 		}
 		s.httpsSrv = s.buildServer(s.cfg.Address, s.cfg.HTTPSPort, true)
+		if s.cfg.EnableQUIC {
+			base := fmt.Sprintf("%s:%d", s.cfg.Address, s.cfg.HTTPSPort)
+			s.quicSrv = s.startQUIC(base, s.cfg.CertFile, s.cfg.KeyFile)
+		}
 		started = true
 	}
 	if !started {
@@ -130,6 +140,7 @@ func (s *WebServer) Stop(timeout time.Duration) {
 		if s.httpsSrv != nil {
 			shutdown(s.httpsSrv)
 		}
+		s.stopQUIC(ctx)
 		wg.Wait()
 		bootstrap.Release()
 		s.running.Store(false)
