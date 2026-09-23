@@ -1,9 +1,12 @@
 package bootstrap
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
-// InitFunc 初始化模块函数类型。
-type InitFunc func()
+// InitFunc 初始化模块函数类型：可变参数，失败返回错误由调用方决定处理方式（如 Fatal）。
+type InitFunc func(args ...string) error
 
 var (
 	mu                 sync.RWMutex
@@ -35,27 +38,31 @@ func RegisterRelease(name string, fn func()) {
 	registeredReleases[name] = fn
 }
 
-// 按注册顺序执行全部初始化模块（由使用方按需调用）。
-func Init() {
+// 按注册顺序执行全部初始化模块，任一模块失败即中断并返回错误。
+// 入参: args (透传给各初始化函数的参数)
+// 出参: 首个失败模块的错误
+func Init(args ...string) error {
 	mu.RLock()
 	defer mu.RUnlock()
 	for _, name := range registerOrder {
-		RegisteredInitModules[name]()
+		if err := RegisteredInitModules[name](args...); err != nil {
+			return fmt.Errorf("init module %q failed: %w", name, err)
+		}
 	}
+	return nil
 }
 
-// 执行单个初始化模块，模块不存在时返回 false。
-// 入参: name (模块名称)
-// 出参: 模块是否存在并已执行
-func TinyInit(name string) bool {
+// 执行单个初始化模块。
+// 入参: name (模块名称), args (透传给初始化函数的参数)
+// 出参: 模块不存在或执行失败时返回错误
+func TinyInit(name string, args ...string) error {
 	mu.RLock()
 	defer mu.RUnlock()
 	fn, ok := RegisteredInitModules[name]
 	if !ok {
-		return false
+		return fmt.Errorf("init module not found: %s", name)
 	}
-	fn()
-	return true
+	return fn(args...)
 }
 
 // 按注册逆序执行全部资源释放函数。

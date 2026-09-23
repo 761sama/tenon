@@ -15,7 +15,7 @@
 - 日志：`tenon.InitLog(...)` 显式初始化文件切割输出，不调用时输出到标准错误
 - 模型注册：`tenon.DB.RegisterModels(...)`，数据库初始化时自动迁移；已初始化后注册则立即迁移
 - 中间件注册：`tenon.RegMiddleware("名称", mw)`，取用 `tenon.Middleware("名称")`
-- 初始化模块扩展点：`bootstrap.RegisterInitModule("名称", fn)` 注册，`bootstrap.Init()` 按需执行
+- 初始化模块扩展点：`bootstrap.RegisterInitModule("名称", fn)` 注册（`fn` 签名为 `func(args ...string) error`），`bootstrap.Init(args...)` 按注册顺序执行、失败即中断并返回错误（由调用方决定 Fatal 或降级），`bootstrap.TinyInit(name, args...)` 执行单个模块
 - 资源释放注册：`bootstrap.RegisterRelease("名称", fn)`，停机时按注册逆序执行（数据库/Redis 初始化时自动注册）
 
 ## 快速开始
