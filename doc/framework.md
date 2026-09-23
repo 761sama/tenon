@@ -81,7 +81,8 @@ cli.Add(tenon.Command{
 | CertFile / KeyFile | HTTPS 证书（相对路径基于工作目录解析） |
 | EnableQUIC | 启用 QUIC (HTTP/3)：与 HTTPS 同地址监听，TLS 请求自动附加 `Alt-Svc: h3=":端口"` 响应头引导客户端升级 |
 | TrustedProxies | 可信代理，防止 X-Forwarded-For 伪造 |
-| AllowOrigins/Methods/Headers | CORS 配置（空值回落到允许所有来源） |
+| AllowOrigins | CORS 允许的来源：**为空表示关闭跨域**（安全基线，不附加任何 CORS 头），["*"] 允许所有来源，或指定来源列表 |
+| AllowMethods/Headers | CORS 允许的方法/请求头（仅在 AllowOrigins 非空时生效） |
 | MaxBodySize | 请求体最大字节数，超限返回 413；0 默认 32MB，负数不限制 |
 | ReadHeaderTimeout | 读取请求头超时（防 Slowloris），0 默认 10s |
 | ReadTimeout / WriteTimeout | 读写超时，0 默认 30s |

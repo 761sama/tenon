@@ -12,7 +12,7 @@ type HTTPConfig struct {
 	KeyFile        string        `json:"key_file"`        // TLS 私钥文件路径（相对路径基于工作目录解析）
 	EnableQUIC     bool          `json:"enable_quic"`     // 是否启用 QUIC (HTTP/3)，与 HTTPS 同地址监听并自动附加 Alt-Svc 响应头
 	TrustedProxies []string      `json:"trusted_proxies"` // 可信反向代理 IP/IP 段(CIDR)，为空表示不信任任何代理
-	AllowOrigins   []string      `json:"allow_origins"`   // CORS 允许的来源列表，["*"] 表示允许所有来源
+	AllowOrigins   []string      `json:"allow_origins"`   // CORS 允许的来源列表，为空表示关闭跨域，["*"] 表示允许所有来源
 	AllowMethods   []string      `json:"allow_methods"`   // CORS 允许的请求方法列表
 	AllowHeaders   []string      `json:"allow_headers"`   // CORS 允许的请求头列表
 	MaxBodySize    int64         `json:"max_body_size"`   // 请求体最大字节数，0 使用默认值 32MB，负数表示不限制
@@ -31,9 +31,10 @@ func DefaultHTTPConfig() HTTPConfig {
 		Port:           8080,
 		HTTPSPort:      -1,
 		TrustedProxies: []string{"127.0.0.1"},
-		AllowOrigins:   []string{"*"},
-		AllowMethods:   []string{"*"},
-		AllowHeaders:   []string{"*"},
+		// 安全基线：默认关闭跨域，需要时显式配置 AllowOrigins
+		AllowOrigins:   []string{},
+		AllowMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"},
+		AllowHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		MaxBodySize:       32 << 20,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,

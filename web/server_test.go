@@ -198,6 +198,48 @@ func TestMaxBodySize(t *testing.T) {
 	}
 }
 
+// 验证 CORS：默认关闭（无 CORS 头），显式配置来源时启用，["*"] 允许所有来源。
+func TestCors(t *testing.T) {
+	newServer := func(origins ...string) *WebServer {
+		cfg := conf.DefaultHTTPConfig()
+		cfg.Port = -1
+		cfg.AllowOrigins = origins
+		srv := New(cfg)
+		srv.Router("GET", "/ping", func(c *gin.Context) { c.String(200, "pong") })
+		return srv
+	}
+	preflight := func(srv *WebServer, origin string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodOptions, "/ping", nil)
+		req.Header.Set("Origin", origin)
+		req.Header.Set("Access-Control-Request-Method", "GET")
+		srv.Engine().ServeHTTP(w, req)
+		return w
+	}
+	// 默认关闭：不附加 CORS 头，OPTIONS 由 NoRoute 兜底
+	srv := newServer()
+	w := preflight(srv, "https://evil.example")
+	if w.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Fatalf("cors should be disabled by default: %q", w.Header().Get("Access-Control-Allow-Origin"))
+	}
+	// 指定来源：仅该来源放行
+	srv = newServer("https://a.example")
+	w = preflight(srv, "https://a.example")
+	if w.Header().Get("Access-Control-Allow-Origin") != "https://a.example" {
+		t.Fatalf("allowed origin should pass: %q", w.Header().Get("Access-Control-Allow-Origin"))
+	}
+	w = preflight(srv, "https://evil.example")
+	if w.Header().Get("Access-Control-Allow-Origin") == "https://evil.example" {
+		t.Fatal("disallowed origin should not pass")
+	}
+	// ["*"] 允许所有来源
+	srv = newServer("*")
+	w = preflight(srv, "https://any.example")
+	if w.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Fatalf("wildcard origin should return *: %q", w.Header().Get("Access-Control-Allow-Origin"))
+	}
+}
+
 // 验证超时配置：零值回落默认值，显式配置生效。
 func TestTimeoutConfig(t *testing.T) {
 	cfg := conf.DefaultHTTPConfig()

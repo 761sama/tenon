@@ -27,22 +27,21 @@ func RecoveryMiddleware() gin.HandlerFunc {
 	}
 }
 
-// 跨域资源共享 (CORS) 中间件，空配置回落到允许所有来源。
+// 跨域资源共享 (CORS) 中间件：AllowOrigins 为空时关闭跨域（不附加任何 CORS 头，由浏览器默认拦截）；
+// 显式配置来源列表（含 ["*"]）时启用。
 // 入参: cfg (HTTP 配置)
 // 出参: gin 中间件函数
 func CorsMiddleware(cfg conf.HTTPConfig) gin.HandlerFunc {
+	if len(cfg.AllowOrigins) == 0 {
+		return func(c *gin.Context) { c.Next() }
+	}
 	config := cors.DefaultConfig()
 	config.AllowOrigins = cfg.AllowOrigins
-	config.AllowHeaders = cfg.AllowHeaders
-	config.AllowMethods = cfg.AllowMethods
-	if len(config.AllowOrigins) == 0 {
-		config.AllowOrigins = []string{"*"}
+	if len(cfg.AllowMethods) > 0 {
+		config.AllowMethods = cfg.AllowMethods
 	}
-	if len(config.AllowMethods) == 0 {
-		config.AllowMethods = []string{"*"}
-	}
-	if len(config.AllowHeaders) == 0 {
-		config.AllowHeaders = []string{"*"}
+	if len(cfg.AllowHeaders) > 0 {
+		config.AllowHeaders = cfg.AllowHeaders
 	}
 	return cors.New(config)
 }
