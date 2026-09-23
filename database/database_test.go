@@ -232,9 +232,25 @@ func TestPoolConfigMySQL(t *testing.T) {
 	}
 }
 
-// 验证列名引用兼容。
+// 验证列名引用兼容与注入防护。
 func TestColumnName(t *testing.T) {
 	if got := ColumnName("user"); got != "`user`" {
 		t.Fatalf("unexpected column name: %s", got)
 	}
+	if got := ColumnName("t.user_name2"); got != "`t`.`user_name2`" {
+		t.Fatalf("unexpected dotted column name: %s", got)
+	}
+	// 注入输入：Safe 版本返回错误
+	for _, bad := range []string{"user`", "a;DROP TABLE t", "1abc", "", "a..b", "user name", "user--"} {
+		if _, err := SafeColumnName(bad); err == nil {
+			t.Fatalf("invalid column name should be rejected: %q", bad)
+		}
+	}
+	// 便捷版本 panic
+	defer func() {
+		if recover() == nil {
+			t.Fatal("invalid column name should panic")
+		}
+	}()
+	ColumnName("user`; DROP TABLE users; --")
 }

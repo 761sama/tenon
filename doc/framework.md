@@ -132,9 +132,12 @@ tenon.DB.RegisterModels(new(User), new(Order))   // 初始化前后注册均可
 db := tenon.DB.GetDB()
 tenon.DB.Transaction(func(tx tenon.Tx) error { ... })
 tenon.DB.GetDBWithTx(tx)                          // dao 层兼容事务
-tenon.DB.ColumnName("name")                       // 列名引用兼容
+tenon.DB.ColumnName("name")                       // 列名引用兼容（仅可信常量，非法输入 panic）
+tenon.DB.SafeColumnName(input)                    // 列名引用兼容（返回 error，用于不可信输入）
 tenon.DB.IsAvailable()                            // 是否已初始化
 ```
+
+列名注入防护：仅允许字母/数字/下划线组成的标识符（支持 `table.column` 点号分段，分段各自加引用符），其他输入一律拒绝。
 
 ### 连接池配置（DBNodeConfig）
 

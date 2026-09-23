@@ -57,7 +57,12 @@ func (Ops) Transaction(fn TransactionFunc) error { return Transaction(fn) }
 // 出参: 迁移错误
 func (Ops) AutoMigrate(dst ...any) error { return AutoMigrate(dst...) }
 
-// 默认实例的列名引用兼容处理。
+// 默认实例的列名引用兼容处理（校验失败 panic，仅用于可信常量列名）。
 // 入参: name (列名)
 // 出参: 带引用符的列名
 func (Ops) ColumnName(name string) string { return ColumnName(name) }
+
+// 默认实例的列名引用兼容处理（返回错误版本，用于不可信输入）。
+// 入参: name (列名)
+// 出参: 带引用符的列名与校验错误
+func (Ops) SafeColumnName(name string) (string, error) { return SafeColumnName(name) }

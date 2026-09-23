@@ -3,6 +3,8 @@ package database
 import (
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"sync"
 
 	"gorm.io/gorm"
@@ -14,6 +16,9 @@ import (
 
 // ErrDBUnavailable 数据库不可用哨兵错误：实例未初始化时由各操作返回。
 var ErrDBUnavailable = errors.New("database unavailable")
+
+// identifierPattern 合法标识符：字母或下划线开头，仅含字母/数字/下划线（注入防护）。
+var identifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // TransactionFunc 事务函数类型。
 type TransactionFunc func(tx *gorm.DB) error
@@ -137,11 +142,18 @@ func AutoMigrate(dst ...any) error {
 	return Default().AutoMigrate(dst...)
 }
 
-// 默认实例的列名引用兼容处理。
+// 默认实例的列名引用兼容处理（校验失败 panic，仅用于可信常量列名）。
 // 入参: name (列名)
 // 出参: 带引用符的列名
 func ColumnName(name string) string {
 	return Default().ColumnName(name)
+}
+
+// 默认实例的列名引用兼容处理（返回错误版本，用于不可信输入）。
+// 入参: name (列名)
+// 出参: 带引用符的列名与校验错误
+func SafeColumnName(name string) (string, error) {
+	return Default().SafeColumnName(name)
 }
 
 // 关闭全部数据库实例连接。
@@ -220,14 +232,36 @@ func (i *Instance) migrate(dst ...any) error {
 	return i.db.AutoMigrate(dst...)
 }
 
-// 实例的列名引用兼容处理。
+// 实例的列名引用兼容处理（校验失败 panic，仅用于可信常量列名）。
 // 入参: name (列名)
 // 出参: 带引用符的列名
 func (i *Instance) ColumnName(name string) string {
-	if i.dbType == "postgres" || i.dbType == "kingbase" {
-		return fmt.Sprintf(`"%s"`, name)
+	quoted, err := i.SafeColumnName(name)
+	if err != nil {
+		panic(err)
 	}
-	return fmt.Sprintf("`%s`", name)
+	return quoted
+}
+
+// 实例的列名引用兼容处理（返回错误版本）：注入防护——仅允许
+// 字母/数字/下划线组成的标识符（支持 table.column 点号分段），拒绝其他输入。
+// 入参: name (列名)
+// 出参: 带引用符的列名与校验错误
+func (i *Instance) SafeColumnName(name string) (string, error) {
+	parts := strings.Split(name, ".")
+	for _, p := range parts {
+		if !identifierPattern.MatchString(p) {
+			return "", fmt.Errorf("invalid column name: %q", name)
+		}
+	}
+	quote := "`"
+	if i != nil && (i.dbType == "postgres" || i.dbType == "kingbase") {
+		quote = `"`
+	}
+	for j, p := range parts {
+		parts[j] = quote + p + quote
+	}
+	return strings.Join(parts, "."), nil
 }
 
 // 关闭实例连接（不操作时注册表）。
