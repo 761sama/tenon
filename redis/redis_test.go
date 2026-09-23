@@ -25,15 +25,15 @@ func setup(t *testing.T) func() {
 	return func() {
 		keys, _ := ops.Keys(testPrefix, "*")
 		for _, k := range keys {
-			_ = client.Del(ctx, k).Err()
+			_ = Client().Del(ctx, k).Err()
 		}
-		Close()
+		CloseAll()
 	}
 }
 
 // 验证未初始化时操作返回 ErrRedisUnavailable。
 func TestUnavailable(t *testing.T) {
-	Close()
+	CloseAll()
 	if _, err := ops.Get("any"); !errors.Is(err, ErrRedisUnavailable) {
 		t.Fatalf("expected ErrRedisUnavailable, got: %v", err)
 	}
@@ -195,6 +195,37 @@ func TestRotate(t *testing.T) {
 	ttl, _ := ops.GetTTL(testPrefix, "new")
 	if ttl <= 0 {
 		t.Fatalf("new key should have ttl: %v", ttl)
+	}
+}
+
+// 验证多实例：默认实例（DB0）与命名实例（DB1）数据隔离。
+func TestMultiInstance(t *testing.T) {
+	err := Init(conf.RedisConfig{Host: "127.0.0.1", Port: 6379, DB: 0})
+	if err != nil {
+		t.Skipf("local redis unavailable, skip: %s", err)
+	}
+	defer CloseAll()
+	if err := InitNamed("cache", conf.RedisConfig{Host: "127.0.0.1", Port: 6379, DB: 1}); err != nil {
+		t.Fatalf("failed to init named instance: %s", err)
+	}
+	cache := Named("cache")
+	if cache == nil || !cache.IsAvailable() {
+		t.Fatal("named instance should be available")
+	}
+	if err := ops.Set("default-value", testPrefix, "multi"); err != nil {
+		t.Fatalf("default set failed: %s", err)
+	}
+	if err := cache.Set("cache-value", testPrefix, "multi"); err != nil {
+		t.Fatalf("named set failed: %s", err)
+	}
+	defer func() {
+		_ = ops.Del(testPrefix, "multi")
+		_ = cache.Del(testPrefix, "multi")
+	}()
+	v1, _ := ops.Get(testPrefix, "multi")
+	v2, _ := cache.Get(testPrefix, "multi")
+	if v1 != "default-value" || v2 != "cache-value" {
+		t.Fatalf("instances should be isolated: %q, %q", v1, v2)
 	}
 }
 

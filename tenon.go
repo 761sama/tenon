@@ -34,13 +34,15 @@ type (
 
 // 常用类型别名。
 type (
-	Context     = gin.Context      // 请求上下文
-	HandlerFunc = gin.HandlerFunc  // 控制器/中间件函数类型
-	WebServerT  = web.WebServer    // Web 服务实例类型
-	RouterGroup = web.RouterGroup  // 路由组类型
-	ErrorCode   = common.ErrorCode // 错误码
-	PageRequest = common.PageRequest // 分页请求
-	Tx          = database.Tx        // 事务连接类型
+	Context      = gin.Context        // 请求上下文
+	HandlerFunc  = gin.HandlerFunc    // 控制器/中间件函数类型
+	WebServerT   = web.WebServer      // Web 服务实例类型
+	RouterGroup  = web.RouterGroup    // 路由组类型
+	ErrorCode    = common.ErrorCode   // 错误码
+	PageRequest  = common.PageRequest // 分页请求
+	Tx           = database.Tx        // 事务连接类型
+	DBInstance   = database.Instance  // 数据库实例（命名实例经 DB.Named 获取）
+	RedisInstance = redis.Instance    // Redis 实例（命名实例经 Redis.Named 获取）
 )
 
 // 构造默认 HTTP 配置，使用方在此基础上按需修改后传入 WebServer。

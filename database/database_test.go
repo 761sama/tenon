@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -97,8 +98,8 @@ func TestMySQL(t *testing.T) {
 		t.Skipf("local mysql unavailable, skip: %s", err)
 	}
 	defer Close()
-	if dbType != "mysql" {
-		t.Fatalf("unexpected db type: %s", dbType)
+	if Default().Type() != "mysql" {
+		t.Fatalf("unexpected db type: %s", Default().Type())
 	}
 	type mysqlProbe struct {
 		ID   uint   `gorm:"primaryKey"`
@@ -129,6 +130,50 @@ func TestMySQL(t *testing.T) {
 	GetDB().Model(&mysqlProbe{}).Where("name = ?", "mysql-tx").Count(&count)
 	if count != 1 {
 		t.Fatalf("unexpected count: %d", count)
+	}
+}
+
+// 验证多实例：默认实例与命名实例（独立 sqlite 文件）数据隔离。
+func TestMultiInstance(t *testing.T) {
+	setupSQLite(t, "first.db")
+	dir := t.TempDir()
+	cfg := conf.DatabaseConfig{
+		Type:   "sqlite3",
+		Master: conf.DBNodeConfig{DBFile: filepath.Join(dir, "second.db")},
+	}
+	if err := InitNamed("second", cfg, false); err != nil {
+		t.Fatalf("failed to init named instance: %s", err)
+	}
+	second := Named("second")
+	if second == nil || !second.IsAvailable() {
+		t.Fatal("named instance should be available")
+	}
+	if err := second.AutoMigrate(&testUser{}); err != nil {
+		t.Fatalf("failed to migrate on named instance: %s", err)
+	}
+	if err := GetDB().Create(&testUser{Name: "in-default"}).Error; err != nil {
+		t.Fatalf("default create failed: %s", err)
+	}
+	var defaultCount, secondCount int64
+	GetDB().Model(&testUser{}).Where("name = ?", "in-default").Count(&defaultCount)
+	second.GetDB().Model(&testUser{}).Where("name = ?", "in-default").Count(&secondCount)
+	if defaultCount != 1 || secondCount != 0 {
+		t.Fatalf("instances should be isolated: %d, %d", defaultCount, secondCount)
+	}
+	if Named("not-exists") != nil {
+		t.Fatal("unknown instance should return nil")
+	}
+}
+
+// 验证未初始化实例的操作返回 ErrDBUnavailable。
+func TestUnavailable(t *testing.T) {
+	CloseAll()
+	if err := Default().Transaction(func(tx Tx) error { return nil }); !errors.Is(err, ErrDBUnavailable) {
+		t.Fatalf("expected ErrDBUnavailable, got: %v", err)
+	}
+	var empty *Instance
+	if err := empty.Transaction(func(tx Tx) error { return nil }); !errors.Is(err, ErrDBUnavailable) {
+		t.Fatalf("nil instance should return ErrDBUnavailable, got: %v", err)
 	}
 }
 
