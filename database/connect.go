@@ -1,6 +1,7 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -40,6 +41,12 @@ func connect(cfg conf.DatabaseConfig, debug bool) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect master database: %w", err)
 	}
+	// 配置主库连接池：优先使用配置值，未配置时按数据库类型取默认值
+	if sqlDB, err := masterDB.DB(); err != nil {
+		return nil, fmt.Errorf("failed to get master database instance for pool config: %w", err)
+	} else {
+		applyPool(sqlDB, cfg.Type, cfg.Master)
+	}
 	if len(cfg.Replicas) > 0 {
 		var replicaDialectors []gorm.Dialector
 		for _, replica := range cfg.Replicas {
@@ -59,6 +66,57 @@ func connect(cfg conf.DatabaseConfig, debug bool) (*gorm.DB, error) {
 		}
 	}
 	return masterDB, nil
+}
+
+// 应用连接池配置：配置值优先，未配置时按数据库类型取默认值。
+// SQLite 为单写库，默认限制单连接避免 database is locked。
+// 入参: sqlDB (底层连接池), dbType (数据库类型), node (节点配置)
+func applyPool(sqlDB *sql.DB, dbType string, node conf.DBNodeConfig) {
+	switch dbType {
+	case "sqlite3", "sqlite":
+		maxOpen := node.MaxOpenConns
+		if maxOpen <= 0 {
+			maxOpen = 1
+		}
+		sqlDB.SetMaxOpenConns(maxOpen)
+		if node.MaxIdleConns > 0 {
+			sqlDB.SetMaxIdleConns(node.MaxIdleConns)
+		}
+	case "mysql":
+		maxOpen := node.MaxOpenConns
+		if maxOpen <= 0 {
+			maxOpen = 50
+		}
+		maxIdle := node.MaxIdleConns
+		if maxIdle <= 0 {
+			maxIdle = 10
+		}
+		lifetime := node.ConnMaxLifetime
+		if lifetime <= 0 {
+			lifetime = time.Hour
+		}
+		idleTime := node.ConnMaxIdleTime
+		if idleTime <= 0 {
+			idleTime = 10 * time.Minute
+		}
+		sqlDB.SetMaxOpenConns(maxOpen)
+		sqlDB.SetMaxIdleConns(maxIdle)
+		sqlDB.SetConnMaxLifetime(lifetime)
+		sqlDB.SetConnMaxIdleTime(idleTime)
+	default:
+		if node.MaxOpenConns > 0 {
+			sqlDB.SetMaxOpenConns(node.MaxOpenConns)
+		}
+		if node.MaxIdleConns > 0 {
+			sqlDB.SetMaxIdleConns(node.MaxIdleConns)
+		}
+		if node.ConnMaxLifetime > 0 {
+			sqlDB.SetConnMaxLifetime(node.ConnMaxLifetime)
+		}
+		if node.ConnMaxIdleTime > 0 {
+			sqlDB.SetConnMaxIdleTime(node.ConnMaxIdleTime)
+		}
+	}
 }
 
 // 构建单个节点的数据库 dialector。

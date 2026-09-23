@@ -177,6 +177,61 @@ func TestUnavailable(t *testing.T) {
 	}
 }
 
+// 验证连接池配置：sqlite 默认单连接，可显式覆盖。
+func TestPoolConfigSQLite(t *testing.T) {
+	setupSQLite(t, "pool.db")
+	sqlDB, err := GetDB().DB()
+	if err != nil {
+		t.Fatalf("failed to get sql db: %s", err)
+	}
+	if sqlDB.Stats().MaxOpenConnections != 1 {
+		t.Fatalf("sqlite should default to single connection: %d", sqlDB.Stats().MaxOpenConnections)
+	}
+	CloseAll()
+	cfg := conf.DatabaseConfig{
+		Type:   "sqlite3",
+		Master: conf.DBNodeConfig{DBFile: filepath.Join(t.TempDir(), "pool5.db"), MaxOpenConns: 5},
+	}
+	if err := Init(cfg, false); err != nil {
+		t.Fatalf("failed to init sqlite: %s", err)
+	}
+	sqlDB, _ = GetDB().DB()
+	if sqlDB.Stats().MaxOpenConnections != 5 {
+		t.Fatalf("explicit MaxOpenConns should be respected: %d", sqlDB.Stats().MaxOpenConnections)
+	}
+}
+
+// 验证 MySQL 连接池：默认 50，可显式覆盖。
+func TestPoolConfigMySQL(t *testing.T) {
+	cfg := conf.DatabaseConfig{
+		Type: "mysql",
+		Master: conf.DBNodeConfig{
+			Host: "127.0.0.1", Port: 3306, User: "testuser", Password: "test123456", Name: "testdb",
+		},
+	}
+	if err := Init(cfg, false); err != nil {
+		t.Skipf("local mysql unavailable, skip: %s", err)
+	}
+	sqlDB, err := GetDB().DB()
+	if err != nil {
+		t.Fatalf("failed to get sql db: %s", err)
+	}
+	if sqlDB.Stats().MaxOpenConnections != 50 {
+		t.Fatalf("mysql should default to 50 connections: %d", sqlDB.Stats().MaxOpenConnections)
+	}
+	CloseAll()
+	cfg.Master.MaxOpenConns = 20
+	cfg.Master.MaxIdleConns = 5
+	if err := Init(cfg, false); err != nil {
+		t.Fatalf("failed to reinit mysql: %s", err)
+	}
+	defer CloseAll()
+	sqlDB, _ = GetDB().DB()
+	if sqlDB.Stats().MaxOpenConnections != 20 {
+		t.Fatalf("explicit MaxOpenConns should be respected: %d", sqlDB.Stats().MaxOpenConnections)
+	}
+}
+
 // 验证列名引用兼容。
 func TestColumnName(t *testing.T) {
 	if got := ColumnName("user"); got != "`user`" {

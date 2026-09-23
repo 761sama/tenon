@@ -55,14 +55,18 @@ type DatabaseConfig struct {
 
 // DBNodeConfig 为单个数据库节点配置。
 type DBNodeConfig struct {
-	Host        string `json:"host"`         // 数据库主机
-	Port        int    `json:"port"`         // 数据库端口，0 表示使用默认端口
-	User        string `json:"user"`         // 数据库用户
-	Password    string `json:"password"`     // 数据库密码
-	Name        string `json:"name"`         // 数据库名称
-	DBFile      string `json:"db_file"`      // SQLite 文件路径（相对路径基于工作目录解析）
-	SSLMode     string `json:"ssl_mode"`     // SSL 模式（MySQL 暂不使用，预留给 Postgres 系）
-	TablePrefix string `json:"table_prefix"` // 表前缀（仅主库生效）
+	Host            string        `json:"host"`              // 数据库主机
+	Port            int           `json:"port"`              // 数据库端口，0 表示使用默认端口
+	User            string        `json:"user"`              // 数据库用户
+	Password        string        `json:"password"`          // 数据库密码
+	Name            string        `json:"name"`              // 数据库名称
+	DBFile          string        `json:"db_file"`           // SQLite 文件路径（相对路径基于工作目录解析）
+	SSLMode         string        `json:"ssl_mode"`          // SSL 模式（MySQL 暂不使用，预留给 Postgres 系）
+	TablePrefix     string        `json:"table_prefix"`      // 表前缀（仅主库生效）
+	MaxOpenConns    int           `json:"max_open_conns"`    // 最大打开连接数，0 使用类型默认值（mysql 50 / sqlite 1）
+	MaxIdleConns    int           `json:"max_idle_conns"`    // 最大空闲连接数，0 使用类型默认值（mysql 10）
+	ConnMaxLifetime time.Duration `json:"conn_max_lifetime"` // 连接最大存活时间（纳秒），0 使用类型默认值（mysql 1h）
+	ConnMaxIdleTime time.Duration `json:"conn_max_idle_time"`// 连接最大空闲时间（纳秒），0 使用类型默认值（mysql 10m）
 }
 
 // RedisConfig 为 Redis 配置（供 tenon.Redis.Init 显式初始化使用）。
