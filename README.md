@@ -23,11 +23,11 @@ tenon 是一个通用服务框架库，将 Web 服务、数据库、缓存、日
 
 ## 功能特性
 
-- Web 服务：基于 gin，支持 HTTP/HTTPS、CORS、优雅停机、路由组
+- Web 服务：基于 gin，`tenon.WebServer` 仅接收 HTTP 配置，支持 HTTP/HTTPS、CORS、优雅停机、路由组
 - 中间件注册制：`tenon.RegMiddleware` 注册，`tenon.Middleware` 取用
-- 数据库模块：gorm 封装，支持 sqlite3 / mysql 与主从读写分离，模型注册制自动迁移
-- Redis 模块：go-redis 封装，`tenon.Redis` 显式初始化后直接调用（字符串/列表/集合/有序集合/哈希/Lua/原子轮换）
-- 日志模块：logrus + lumberjack 切割
+- 数据库模块：`tenon.DB` 显式初始化，gorm 封装，支持 sqlite3 / mysql 与主从读写分离，模型注册制自动迁移
+- Redis 模块：`tenon.Redis` 显式初始化后直接调用（字符串/列表/集合/有序集合/哈希/Lua/原子轮换）
+- 日志模块：logrus + lumberjack 切割，`tenon.InitLog` 显式初始化
 - 统一响应封装与分页工具
 - 内置 CLI：默认提供 server 子命令，支持扩展自定义子命令
 
@@ -53,12 +53,20 @@ import (
 
 func main() {
 	tenon.RegMiddleware("mark", func(c *gin.Context) { c.Next() })
-	server := tenon.WebServer(tenon.DefaultConfig())
+	server := tenon.WebServer(tenon.DefaultHTTPConfig()) // 仅 HTTP 配置
 	server.Router("GET", "/ping", tenon.Middleware("mark"), func(c *gin.Context) {
 		tenon.Success(c, gin.H{"msg": "pong"})
 	})
 	server.Run()
 }
+```
+
+数据库与 Redis 按需显式初始化：
+
+```go
+tenon.DB.Init(tenon.DatabaseConfig{Type: "sqlite3", Master: tenon.DBNodeConfig{DBFile: "data.db"}}, false)
+tenon.DB.RegisterModels(new(User))
+tenon.Redis.Init(tenon.RedisConfig{Host: "127.0.0.1", Port: 6379})
 ```
 
 更多示例见 [example/](example/)。
@@ -68,13 +76,12 @@ func main() {
 ```
 tenon.go / middleware.go / cli.go   框架门面（根包 tenon）
 conf/        配置结构定义（纯结构体）
-bootstrap/   注册制初始化模块
-logx/        日志模块
-database/    数据库模块（gorm）
-redis/       Redis 模块
+bootstrap/   初始化模块扩展点与资源释放注册
+logx/        日志模块（显式初始化）
+database/    数据库模块（gorm，显式初始化）
+redis/       Redis 模块（显式初始化）
 web/         Web 服务（gin 引擎封装）
 common/      统一响应、错误码、分页
-util/        工具函数
 example/     使用示例
 doc/         详细文档
 ```
