@@ -101,6 +101,17 @@ tenon.DB.ColumnName("name")                       // 列名引用兼容
 tenon.DB.IsAvailable()                            // 是否已初始化
 ```
 
+### 连接池配置（DBNodeConfig）
+
+| 字段 | 说明 | 默认值 |
+|------|------|--------|
+| MaxOpenConns | 最大打开连接数 | mysql 50 / sqlite 1（单写库，避免 database is locked） |
+| MaxIdleConns | 最大空闲连接数 | mysql 10 |
+| ConnMaxLifetime | 连接最大存活时间 | mysql 1h |
+| ConnMaxIdleTime | 连接最大空闲时间 | mysql 10m |
+
+配置值大于 0 时优先于类型默认值；连接池配置仅作用于主库。
+
 ### 多数据库实例
 
 ```go
