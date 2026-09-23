@@ -51,6 +51,21 @@ func DefaultHTTPConfig() HTTPConfig {
 	return conf.DefaultHTTPConfig()
 }
 
+// 通用配置文件加载（泛型，与具体配置结构解耦）：文件不存在时以默认值生成；
+// 存在时先以默认值填充再反序列化覆盖（字段自动补全），随后回写文件（含版本回写）。
+// 入参: path (配置文件路径), defaults (默认配置构造函数), version (配置版本，空字符串跳过)
+// 出参: 配置对象, 来源 (conf.FromCreate/conf.FromLoad), 错误
+func LoadConfig[T any](path string, defaults func() *T, version string) (*T, string, error) {
+	return conf.Load(path, defaults, version)
+}
+
+// 将相对路径解析为基于数据目录的路径；绝对路径原样返回。
+// 入参: dataDir (数据目录，空字符串表示工作目录), name (待解析的路径)
+// 出参: 解析后的路径
+func ResolveDataPath(dataDir, name string) string {
+	return conf.ResolveDataPath(dataDir, name)
+}
+
 // 显式初始化日志模块：设置日志级别与文件切割输出；不调用时默认输出到标准错误。
 // 入参: cfg (日志配置), debug (是否调试模式)
 // 出参: 日志目录创建失败时返回错误
