@@ -67,6 +67,20 @@ tenon.DB.ColumnName("name")                       // 列名引用兼容
 tenon.DB.IsAvailable()                            // 是否已初始化
 ```
 
+### 多数据库实例
+
+```go
+tenon.DB.InitNamed("report", reportCfg, false)    // 初始化命名实例
+report := tenon.DB.Named("report")                // 获取命名实例（*tenon.DBInstance）
+report.GetDB().Find(&rows)
+report.Transaction(func(tx tenon.Tx) error { ... })
+report.RegisterModels(new(Report))                // 仅迁移到该实例
+```
+
+- `tenon.DB` 上的方法均作用于默认实例（名称 `default`）
+- 全局 `RegisterModels` 注册的模型会在每个实例初始化时自动迁移，并立即迁移到所有已初始化实例
+- `server.Stop` 时自动关闭全部实例连接
+
 ## Redis
 
 Redis 采用**显式初始化**，不随 `tenon.WebServer` 自动初始化：
@@ -86,8 +100,16 @@ tenon.Redis.Rotate(data, ttl, oldKey, newKey)   // 原子轮换（并发安全�
 tenon.Redis.Client()                            // 获取底层 go-redis 客户端
 ```
 
+### 多 Redis 实例
+
+```go
+tenon.Redis.InitNamed("cache", tenon.RedisConfig{Host: "127.0.0.1", Port: 6379, DB: 1})
+cache := tenon.Redis.Named("cache")             // 获取命名实例（*tenon.RedisInstance）
+cache.Set("v", "key")                           // 实例方法与默认门面完全一致
+```
+
 - 未初始化或连接不可用时，各操作返回哨兵错误 `redis.ErrRedisUnavailable`，供调用方降级处理
-- 初始化成功后自动注册停机释放，`server.Stop` 时会一并关闭连接
+- 初始化成功后自动注册停机释放，`server.Stop` 时自动关闭全部实例连接
 
 ## 日志
 
