@@ -49,8 +49,11 @@ cli.Run(server)                      // 注册 server 子命令并执行
 | CertFile / KeyFile | HTTPS 证书（相对路径基于工作目录解析） |
 | EnableQUIC | 启用 QUIC (HTTP/3)：与 HTTPS 同地址监听，TLS 请求自动附加 `Alt-Svc: h3=":端口"` 响应头引导客户端升级 |
 | TrustedProxies | 可信代理，防止 X-Forwarded-For 伪造 |
-| AllowOrigins/Methods/Headers | CORS 配置 |
-| ReadTimeout / WriteTimeout | 读写超时，0 表示使用默认值 |
+| AllowOrigins/Methods/Headers | CORS 配置（空值回落到允许所有来源） |
+| MaxBodySize | 请求体最大字节数，超限返回 413；0 默认 32MB，负数不限制 |
+| ReadHeaderTimeout | 读取请求头超时（防 Slowloris），0 默认 10s |
+| ReadTimeout / WriteTimeout | 读写超时，0 默认 30s |
+| IdleTimeout | Keep-Alive 空闲连接超时，0 默认 120s |
 
 ## 配置文件与数据目录（可选封装，与框架默认配置解耦）
 
