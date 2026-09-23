@@ -20,6 +20,7 @@ type HTTPConfig struct {
 	ReadTimeout    time.Duration `json:"read_timeout"`    // 读超时（纳秒），0 使用默认值 30s
 	WriteTimeout   time.Duration `json:"write_timeout"`   // 写超时（纳秒），0 使用默认值 30s
 	IdleTimeout    time.Duration `json:"idle_timeout"`    // Keep-Alive 空闲连接超时，0 使用默认值 120s
+	ShutdownTimeout time.Duration `json:"shutdown_timeout"` // 优雅停机超时（纳秒），0 使用默认值 5s
 }
 
 // 构造默认 HTTP 配置，使用方可在此基础上按需修改。
@@ -40,6 +41,7 @@ func DefaultHTTPConfig() HTTPConfig {
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
+		ShutdownTimeout:   5 * time.Second,
 	}
 }
 

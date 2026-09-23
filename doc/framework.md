@@ -87,6 +87,7 @@ cli.Add(tenon.Command{
 | ReadHeaderTimeout | 读取请求头超时（防 Slowloris），0 默认 10s |
 | ReadTimeout / WriteTimeout | 读写超时，0 默认 30s |
 | IdleTimeout | Keep-Alive 空闲连接超时，0 默认 120s |
+| ShutdownTimeout | 优雅停机超时，0 默认 5s（`Run()` 收到信号后按此时长停机） |
 
 ## 配置文件与数据目录（可选封装，与框架默认配置解耦）
 

@@ -262,4 +262,14 @@ func TestTimeoutConfig(t *testing.T) {
 	if httpSrv.ReadHeaderTimeout <= 0 || httpSrv.ReadTimeout <= 0 || httpSrv.WriteTimeout <= 0 || httpSrv.IdleTimeout <= 0 {
 		t.Fatal("zero config should fall back to safe defaults")
 	}
+	// 停机超时：默认 5s，显式配置生效，零值回落
+	if conf.DefaultHTTPConfig().ShutdownTimeout != 5*time.Second {
+		t.Fatalf("unexpected default shutdown timeout: %v", conf.DefaultHTTPConfig().ShutdownTimeout)
+	}
+	if got := durationOrDefault(0, 5*time.Second); got != 5*time.Second {
+		t.Fatalf("zero shutdown timeout should fall back: %v", got)
+	}
+	if got := durationOrDefault(10*time.Second, 5*time.Second); got != 10*time.Second {
+		t.Fatalf("explicit shutdown timeout should be respected: %v", got)
+	}
 }

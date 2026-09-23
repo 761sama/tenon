@@ -106,6 +106,7 @@ func (s *WebServer) Start() error {
 }
 
 // 阻塞运行服务：启动后等待 SIGINT/SIGTERM 信号，收到后优雅停机并释放资源。
+// 停机超时取 cfg.ShutdownTimeout（0 回落默认值 5s）。
 // 出参: 启动错误
 func (s *WebServer) Run() error {
 	if err := s.Start(); err != nil {
@@ -114,7 +115,7 @@ func (s *WebServer) Run() error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	s.Stop(5 * time.Second)
+	s.Stop(durationOrDefault(s.cfg.ShutdownTimeout, 5*time.Second))
 	return nil
 }
 
