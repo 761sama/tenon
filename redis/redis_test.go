@@ -229,6 +229,28 @@ func TestMultiInstance(t *testing.T) {
 	}
 }
 
+// 验证原子自增 + TTL：首次自增设置过期时间，后续自增不重置 TTL。
+func TestIncrWithTTL(t *testing.T) {
+	defer setup(t)()
+	n, err := ops.IncrWithTTL(time.Minute, testPrefix, "rate")
+	if err != nil || n != 1 {
+		t.Fatalf("first incr should be 1: %d, %v", n, err)
+	}
+	ttl1, _ := ops.GetTTL(testPrefix, "rate")
+	if ttl1 <= 0 || ttl1 > time.Minute {
+		t.Fatalf("ttl should be set on first incr: %v", ttl1)
+	}
+	time.Sleep(1100 * time.Millisecond)
+	n, err = ops.IncrWithTTL(time.Minute, testPrefix, "rate")
+	if err != nil || n != 2 {
+		t.Fatalf("second incr should be 2: %d, %v", n, err)
+	}
+	ttl2, _ := ops.GetTTL(testPrefix, "rate")
+	if ttl2 >= ttl1 {
+		t.Fatalf("ttl should not be reset on existing key: %v >= %v", ttl2, ttl1)
+	}
+}
+
 // 验证键构建。
 func TestBuildKey(t *testing.T) {
 	if got := BuildKey("a", "b", "c"); got != "a:b:c" {

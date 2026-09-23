@@ -140,6 +140,7 @@ tenon.Redis.SAdd([]string{"x"}, "set")          // 集合
 tenon.Redis.ZAdd(zs, "zset")                    // 有序集合
 tenon.Redis.HSet(map[string]any{"f": "v"}, "h") // 哈希
 tenon.Redis.Incr("counter")                     // 自增
+tenon.Redis.IncrWithTTL(time.Minute, "rate")    // 原子自增+首建设 TTL（限流计数）
 tenon.Redis.Eval(script, args, "key")           // Lua 脚本
 tenon.Redis.Rotate(data, ttl, oldKey, newKey)   // 原子轮换（并发安全的旧键消费）
 tenon.Redis.Client()                            // 获取底层 go-redis 客户端

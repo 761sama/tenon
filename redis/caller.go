@@ -127,6 +127,11 @@ func (Ops) Incr(key ...string) (int64, error) { return Default().Incr(key...) }
 // 键值增加指定值。
 func (Ops) IncrBy(value int64, key ...string) (int64, error) { return Default().IncrBy(value, key...) }
 
+// 原子自增并在键首次创建时设置过期时间（键已存在则不重复设置 TTL），用于限流计数等场景。
+func (Ops) IncrWithTTL(ttl time.Duration, key ...string) (int64, error) {
+	return Default().IncrWithTTL(ttl, key...)
+}
+
 // 匹配键。
 func (Ops) Keys(pattern ...string) ([]string, error) { return Default().Keys(pattern...) }
 
@@ -233,6 +238,11 @@ func (i *Instance) Incr(key ...string) (int64, error) { return incr(i.client, ke
 
 // 键值增加指定值。
 func (i *Instance) IncrBy(value int64, key ...string) (int64, error) { return incrBy(i.client, value, key...) }
+
+// 原子自增并在键首次创建时设置过期时间（键已存在则不重复设置 TTL），用于限流计数等场景。
+func (i *Instance) IncrWithTTL(ttl time.Duration, key ...string) (int64, error) {
+	return incrWithTTL(i.client, ttl, key...)
+}
 
 // 匹配键。
 func (i *Instance) Keys(pattern ...string) ([]string, error) { return keys(i.client, pattern...) }

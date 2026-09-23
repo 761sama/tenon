@@ -297,6 +297,29 @@ func incrBy(r *goredis.Client, value int64, key ...string) (int64, error) {
 	return r.IncrBy(ctx, BuildKey(key...), value).Result()
 }
 
+// 原子自增并在键首次创建时设置过期时间（键已存在则不重复设置 TTL），
+// 用于限流计数等场景，Lua 脚本保证 INCR 与 PEXPIRE 的原子性。
+func incrWithTTL(r *goredis.Client, ttl time.Duration, key ...string) (int64, error) {
+	if r == nil {
+		return 0, ErrRedisUnavailable
+	}
+	script := `
+local n = redis.call('INCR', KEYS[1])
+if n == 1 then
+    redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return n`
+	res, err := r.Eval(ctx, script, []string{BuildKey(key...)}, strconv.FormatInt(ttl.Milliseconds(), 10)).Result()
+	if err != nil {
+		return 0, err
+	}
+	n, ok := res.(int64)
+	if !ok {
+		return 0, fmt.Errorf("unexpected redis incr result: %v", res)
+	}
+	return n, nil
+}
+
 // 执行 Lua 脚本，键片段拼接后作为单个 KEYS[1] 传入。
 func eval(r *goredis.Client, script string, args []any, key ...string) (any, error) {
 	if r == nil {
