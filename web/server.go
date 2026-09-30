@@ -22,21 +22,21 @@ import (
 
 // WebServer Web 服务实例。
 type WebServer struct {
-	cfg       conf.HTTPConfig
-	engine    *gin.Engine
-	running   atomic.Bool
-	httpSrv   *http.Server
-	httpsSrv  *http.Server
-	quicSrv   *http3.Server
-	stopOnce  sync.Once
+	cfg      conf.HTTPConfig
+	engine   *gin.Engine
+	running  atomic.Bool
+	httpSrv  *http.Server
+	httpsSrv *http.Server
+	quicSrv  *http3.Server
+	stopOnce sync.Once
 }
 
 // 创建 Web 服务实例：构建 gin 引擎。
 // 日志/数据库/Redis 不随服务自动初始化，需分别通过
 // tenon.InitLog / tenon.DB.Init / tenon.Redis.Init 显式初始化。
 // 入参: cfg (HTTP 服务配置)
-// 出参: Web 服务实例
-func New(cfg conf.HTTPConfig) *WebServer {
+// 出参: Web 服务实例；配置非法（如 TrustedProxies 含非法 CIDR）时返回错误
+func New(cfg conf.HTTPConfig) (*WebServer, error) {
 	if !cfg.Debug {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -44,7 +44,7 @@ func New(cfg conf.HTTPConfig) *WebServer {
 	engine := gin.New()
 	engine.ContextWithFallback = true
 	if err := engine.SetTrustedProxies(cfg.TrustedProxies); err != nil {
-		log.Errorf("failed to set trusted proxies: %s", err.Error())
+		return nil, fmt.Errorf("failed to set trusted proxies: %w", err)
 	}
 	engine.Use(gin.LoggerWithWriter(log.StandardLogger().Out))
 	engine.Use(RecoveryMiddleware())
@@ -55,7 +55,7 @@ func New(cfg conf.HTTPConfig) *WebServer {
 	if cfg.EnableQUIC {
 		engine.Use(AltSvcMiddleware(cfg.HTTPSPort))
 	}
-	return &WebServer{cfg: cfg, engine: engine}
+	return &WebServer{cfg: cfg, engine: engine}, nil
 }
 
 // 获取底层 gin 引擎，用于注册框架未封装的能力。

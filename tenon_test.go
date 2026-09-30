@@ -33,7 +33,10 @@ func TestMiddlewareRegistry(t *testing.T) {
 func TestRouterAndResponse(t *testing.T) {
 	cfg := DefaultHTTPConfig()
 	cfg.Port = -1
-	srv := WebServer(cfg)
+	srv, err := WebServer(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
 	RegMiddleware("test-auth", func(c *gin.Context) {
 		c.Set("authed", true)
 		c.Next()
@@ -67,7 +70,10 @@ func TestRouterAndResponse(t *testing.T) {
 func TestRouterGroup(t *testing.T) {
 	cfg := DefaultHTTPConfig()
 	cfg.Port = -1
-	srv := WebServer(cfg)
+	srv, err := WebServer(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
 	v1 := srv.Group("/v1")
 	admin := v1.Group("/admin")
 	admin.Router("GET", "/info", func(c *gin.Context) {
@@ -85,7 +91,10 @@ func TestRouterGroup(t *testing.T) {
 func TestNoRoute(t *testing.T) {
 	cfg := DefaultHTTPConfig()
 	cfg.Port = -1
-	srv := WebServer(cfg)
+	srv, err := WebServer(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/no-such-path", nil)
 	srv.Engine().ServeHTTP(w, req)

@@ -96,7 +96,10 @@ func TestHTTPSAndQUIC(t *testing.T) {
 	cfg.CertFile = certFile
 	cfg.KeyFile = keyFile
 	cfg.EnableQUIC = true
-	srv := New(cfg)
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
 	srv.Router("GET", "/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"msg": "pong"})
 	})
@@ -151,7 +154,10 @@ func TestQUICRequiresHTTPS(t *testing.T) {
 	cfg.Port = -1
 	cfg.HTTPSPort = -1
 	cfg.EnableQUIC = true
-	srv := New(cfg)
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
 	if err := srv.Start(); err == nil {
 		t.Fatal("start should fail when no listener enabled")
 	}
@@ -165,7 +171,10 @@ func TestMaxBodySize(t *testing.T) {
 	cfg := conf.DefaultHTTPConfig()
 	cfg.Port = -1
 	cfg.MaxBodySize = 16
-	srv := New(cfg)
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
 	srv.Router("POST", "/echo", func(c *gin.Context) {
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -204,7 +213,10 @@ func TestCors(t *testing.T) {
 		cfg := conf.DefaultHTTPConfig()
 		cfg.Port = -1
 		cfg.AllowOrigins = origins
-		srv := New(cfg)
+		srv, err := New(cfg)
+		if err != nil {
+			t.Fatalf("failed to create server: %s", err)
+		}
 		srv.Router("GET", "/ping", func(c *gin.Context) { c.String(200, "pong") })
 		return srv
 	}
@@ -244,20 +256,27 @@ func TestCors(t *testing.T) {
 func TestTimeoutConfig(t *testing.T) {
 	cfg := conf.DefaultHTTPConfig()
 	cfg.Port = -1
-	srv := New(cfg)
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
 	httpSrv := srv.newHTTPServer("127.0.0.1", 8080)
 	if httpSrv.ReadHeaderTimeout != 10*time.Second || httpSrv.IdleTimeout != 120*time.Second {
 		t.Fatalf("unexpected default timeouts: header=%v idle=%v", httpSrv.ReadHeaderTimeout, httpSrv.IdleTimeout)
 	}
 	cfg.ReadHeaderTimeout = 3 * time.Second
 	cfg.IdleTimeout = 60 * time.Second
-	srv = New(cfg)
+	if srv, err = New(cfg); err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
 	httpSrv = srv.newHTTPServer("127.0.0.1", 8080)
 	if httpSrv.ReadHeaderTimeout != 3*time.Second || httpSrv.IdleTimeout != 60*time.Second {
 		t.Fatalf("explicit timeouts should be respected: header=%v idle=%v", httpSrv.ReadHeaderTimeout, httpSrv.IdleTimeout)
 	}
 	// 零值配置也应回落默认值（而非无超时）
-	srv = New(conf.HTTPConfig{Port: -1})
+	if srv, err = New(conf.HTTPConfig{Port: -1}); err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
 	httpSrv = srv.newHTTPServer("127.0.0.1", 8080)
 	if httpSrv.ReadHeaderTimeout <= 0 || httpSrv.ReadTimeout <= 0 || httpSrv.WriteTimeout <= 0 || httpSrv.IdleTimeout <= 0 {
 		t.Fatal("zero config should fall back to safe defaults")
@@ -271,5 +290,15 @@ func TestTimeoutConfig(t *testing.T) {
 	}
 	if got := durationOrDefault(10*time.Second, 5*time.Second); got != 10*time.Second {
 		t.Fatalf("explicit shutdown timeout should be respected: %v", got)
+	}
+}
+
+// 验证非法 TrustedProxies 配置在 New 时显式返回错误（不再静默降级）。
+func TestNewInvalidTrustedProxies(t *testing.T) {
+	cfg := conf.DefaultHTTPConfig()
+	cfg.Port = -1
+	cfg.TrustedProxies = []string{"not-a-cidr"}
+	if _, err := New(cfg); err == nil {
+		t.Fatal("invalid trusted proxies should return error")
 	}
 }

@@ -13,7 +13,10 @@ func main() {
 	cfg := tenon.DefaultHTTPConfig()
 	cfg.Address = "127.0.0.1"
 	cfg.Port = 8081
-	server := tenon.WebServer(cfg)
+	server, err := tenon.WebServer(cfg)
+	if err != nil {
+		panic(err)
+	}
 	server.Router("GET", "/ping", func(c *gin.Context) {
 		tenon.Success(c, gin.H{"msg": "pong"})
 	})

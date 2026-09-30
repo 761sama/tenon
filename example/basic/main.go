@@ -18,7 +18,10 @@ func main() {
 	cfg.Debug = true
 	cfg.Address = "127.0.0.1"
 	cfg.Port = 8080
-	server := tenon.WebServer(cfg)
+	server, err := tenon.WebServer(cfg)
+	if err != nil {
+		panic(err)
+	}
 	server.Router("GET", "/ping", tenon.Middleware("mark"), func(c *gin.Context) {
 		tenon.Success(c, gin.H{"msg": "pong"})
 	})

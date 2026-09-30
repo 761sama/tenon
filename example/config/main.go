@@ -40,7 +40,10 @@ func main() {
 		}
 		fmt.Printf("config %s: %s\n", from, configPath)
 		cfg.HTTP.Debug = flags.Debug
-		server := tenon.WebServer(cfg.HTTP)
+		server, err := tenon.WebServer(cfg.HTTP)
+		if err != nil {
+			panic(err)
+		}
 		server.Router("GET", "/ping", func(c *gin.Context) {
 			tenon.Success(c, gin.H{"msg": "pong", "version": cfg.Version})
 		})
