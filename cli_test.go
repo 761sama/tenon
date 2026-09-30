@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"gopkg.761sama.com/tenon/web"
 )
 
 // 验证带 flags 与位置参数校验的命令。
@@ -110,6 +112,31 @@ func TestCliRoot(t *testing.T) {
 	})
 	if err := cli.ExecuteArgs("raw"); err != nil || !ran {
 		t.Fatalf("raw cobra command should work: %v, %v", err, ran)
+	}
+}
+
+// 验证 Serve 注册 server 子命令但不执行 CLI。
+func TestCliServeRegistersCommand(t *testing.T) {
+	cli := NewCli("app", "test")
+	cfg := DefaultHTTPConfig()
+	cfg.Port = -1
+	srv, err := web.New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
+	cmd := cli.Serve(srv)
+	if cmd == nil || cmd.Use != "server" {
+		t.Fatalf("unexpected server command: %+v", cmd)
+	}
+	found, _, err := cli.Root().Find([]string{"server"})
+	if err != nil || found != cmd {
+		t.Fatalf("server command should be registered: %v, %v", found, err)
+	}
+	// Serve 不执行 CLI：注册其它命令后仍可程序化执行
+	ran := false
+	cli.AddCommand("version", "打印版本", func() { ran = true })
+	if err := cli.ExecuteArgs("version"); err != nil || !ran {
+		t.Fatalf("cli should still execute after Serve: %v, %v", err, ran)
 	}
 }
 

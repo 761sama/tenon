@@ -10,16 +10,6 @@ import (
 )
 
 func main() {
-	cfg := tenon.DefaultHTTPConfig()
-	cfg.Address = "127.0.0.1"
-	cfg.Port = 8081
-	server, err := tenon.WebServer(cfg)
-	if err != nil {
-		panic(err)
-	}
-	server.Router("GET", "/ping", func(c *gin.Context) {
-		tenon.Success(c, gin.H{"msg": "pong"})
-	})
 	cli := tenon.NewCli("demo", "tenon CLI 示例")
 	cli.AddCommand("version", "打印版本", func() {
 		println("tenon " + tenon.Version)
@@ -50,5 +40,18 @@ func main() {
 			},
 		},
 	})
-	cli.Run(server)
+	cli.AddCommand("server", "启动服务", func() {
+		cfg := tenon.DefaultHTTPConfig()
+		cfg.Address = "127.0.0.1"
+		cfg.Port = 8081
+		application := tenon.NewWebApp(tenon.WebAppOptions{HTTP: cfg})
+		application.Server().Router("GET", "/ping", func(c *gin.Context) {
+			tenon.Success(c, gin.H{"msg": "pong"})
+		})
+		// 初始化 -> 监听 -> 等信号 -> 停机 -> 释放
+		if err := application.Run(); err != nil {
+			panic(err)
+		}
+	})
+	cli.Execute()
 }
