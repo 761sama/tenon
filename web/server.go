@@ -72,6 +72,60 @@ func (s *WebServer) Router(method, path string, handlers ...gin.HandlerFunc) {
 	handle(s.engine, method, path, handlers)
 }
 
+// 注册全局中间件。必须在注册任何路由之前调用（gin 的 engine.Use 在已有路由注册后调用会 panic）。
+// 入参: mw (中间件函数列表)
+func (s *WebServer) Use(mw ...gin.HandlerFunc) {
+	s.engine.Use(mw...)
+}
+
+// 注册 GET 路由：前若干参数为中间件函数，最后一个参数为控制器。
+// 入参: path (路由路径), handlers (中间件函数与控制器的有序列表)
+func (s *WebServer) GET(path string, handlers ...gin.HandlerFunc) {
+	s.Router(http.MethodGet, path, handlers...)
+}
+
+// 注册 POST 路由：前若干参数为中间件函数，最后一个参数为控制器。
+// 入参: path (路由路径), handlers (中间件函数与控制器的有序列表)
+func (s *WebServer) POST(path string, handlers ...gin.HandlerFunc) {
+	s.Router(http.MethodPost, path, handlers...)
+}
+
+// 注册 PUT 路由：前若干参数为中间件函数，最后一个参数为控制器。
+// 入参: path (路由路径), handlers (中间件函数与控制器的有序列表)
+func (s *WebServer) PUT(path string, handlers ...gin.HandlerFunc) {
+	s.Router(http.MethodPut, path, handlers...)
+}
+
+// 注册 DELETE 路由：前若干参数为中间件函数，最后一个参数为控制器。
+// 入参: path (路由路径), handlers (中间件函数与控制器的有序列表)
+func (s *WebServer) DELETE(path string, handlers ...gin.HandlerFunc) {
+	s.Router(http.MethodDelete, path, handlers...)
+}
+
+// 注册 PATCH 路由：前若干参数为中间件函数，最后一个参数为控制器。
+// 入参: path (路由路径), handlers (中间件函数与控制器的有序列表)
+func (s *WebServer) PATCH(path string, handlers ...gin.HandlerFunc) {
+	s.Router(http.MethodPatch, path, handlers...)
+}
+
+// 注册 HEAD 路由：前若干参数为中间件函数，最后一个参数为控制器。
+// 入参: path (路由路径), handlers (中间件函数与控制器的有序列表)
+func (s *WebServer) HEAD(path string, handlers ...gin.HandlerFunc) {
+	s.Router(http.MethodHead, path, handlers...)
+}
+
+// 注册 OPTIONS 路由：前若干参数为中间件函数，最后一个参数为控制器。
+// 入参: path (路由路径), handlers (中间件函数与控制器的有序列表)
+func (s *WebServer) OPTIONS(path string, handlers ...gin.HandlerFunc) {
+	s.Router(http.MethodOptions, path, handlers...)
+}
+
+// 注册匹配所有 HTTP 方法的路由：前若干参数为中间件函数，最后一个参数为控制器。
+// 入参: path (路由路径), handlers (中间件函数与控制器的有序列表)
+func (s *WebServer) ANY(path string, handlers ...gin.HandlerFunc) {
+	s.Router("ANY", path, handlers...)
+}
+
 // 创建路由组，组内路由共享前缀与中间件。
 // 入参: prefix (路由前缀), handlers (组级中间件函数列表)
 // 出参: 路由组

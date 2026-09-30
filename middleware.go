@@ -8,19 +8,22 @@ import (
 )
 
 var (
-	mwMu       sync.RWMutex
+	mwMu        sync.RWMutex
 	middlewares = map[string]gin.HandlerFunc{} // 已注册的中间件（名称 -> 函数）
 )
 
-// 注册中间件，注册后可通过 Middleware("名称") 获取并传入 Router。
+// 注册中间件并返回句柄：注册后可通过 Middleware("名称") 按名获取（配置驱动场景），
+// 也可直接使用返回的句柄挂到路由（编译期可检查）。
 // 入参: name (中间件名称), mw (中间件函数)
-func RegMiddleware(name string, mw gin.HandlerFunc) {
+// 出参: 已注册的中间件函数（原样返回）
+func RegMiddleware(name string, mw gin.HandlerFunc) gin.HandlerFunc {
 	if mw == nil {
 		panic(fmt.Sprintf("tenon: middleware %q is nil", name))
 	}
 	mwMu.Lock()
 	defer mwMu.Unlock()
 	middlewares[name] = mw
+	return mw
 }
 
 // 按名称获取已注册的中间件函数，未注册时 panic（启动期编程错误应尽早暴露）。

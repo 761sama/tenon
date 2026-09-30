@@ -34,9 +34,7 @@ type (
 
 // 常用类型别名。
 type (
-	Context       = gin.Context        // 请求上下文
-	HandlerFunc   = gin.HandlerFunc    // 控制器/中间件函数类型
-	WebServerT    = web.WebServer      // Web 服务实例类型
+	WebServer     = web.WebServer      // Web 服务实例类型
 	RouterGroup   = web.RouterGroup    // 路由组类型
 	ErrorCode     = common.ErrorCode   // 错误码
 	PageRequest   = common.PageRequest // 分页请求
@@ -73,27 +71,20 @@ func InitLog(cfg LogConfig, debug bool) error {
 	return logx.Init(cfg, debug)
 }
 
-// 创建 Web 服务实例：构建 gin 引擎（仅依赖 HTTP 配置）。
-// 入参: cfg (HTTP 服务配置)
-// 出参: Web 服务实例；配置非法（如 TrustedProxies 含非法 CIDR）时返回错误
-func WebServer(cfg HTTPConfig) (*WebServerT, error) {
-	return web.New(cfg)
-}
-
 // 成功响应快捷调用。
 // 入参: c (请求上下文), results (业务数据，取第一个)
-func Success(c *Context, results ...any) {
+func Success(c *gin.Context, results ...any) {
 	common.SuccessResponse(c, results...)
 }
 
 // 错误响应快捷调用（错误码 -1）。
 // 入参: c (请求上下文), message (提示信息)
-func Error(c *Context, message string) {
+func Error(c *gin.Context, message string) {
 	common.ErrorResponse(c, message)
 }
 
 // 使用预定义错误码响应。
 // 入参: c (请求上下文), code (错误码)
-func ErrorWithCode(c *Context, code ErrorCode) {
+func ErrorWithCode(c *gin.Context, code ErrorCode) {
 	common.ErrorResponseWithCode(c, code)
 }

@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+
+	"gopkg.761sama.com/tenon/web"
 )
 
 // 验证中间件注册与按名称获取。
@@ -29,11 +31,34 @@ func TestMiddlewareRegistry(t *testing.T) {
 	Middleware("not-exists")
 }
 
+// 验证注册中间件返回的句柄可直接挂到路由。
+func TestRegMiddlewareReturnsHandle(t *testing.T) {
+	mark := RegMiddleware("test-handle", func(c *gin.Context) {
+		c.Header("X-Mark", "handle")
+		c.Next()
+	})
+	cfg := DefaultHTTPConfig()
+	cfg.Port = -1
+	srv, err := web.New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
+	srv.GET("/ping", mark, func(c *gin.Context) {
+		Success(c, gin.H{"msg": "pong"})
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	srv.Engine().ServeHTTP(w, req)
+	if w.Code != http.StatusOK || w.Header().Get("X-Mark") != "handle" {
+		t.Fatalf("registered handle should be usable directly: %d %q", w.Code, w.Header().Get("X-Mark"))
+	}
+}
+
 // 验证路由注册、中间件执行与统一响应。
 func TestRouterAndResponse(t *testing.T) {
 	cfg := DefaultHTTPConfig()
 	cfg.Port = -1
-	srv, err := WebServer(cfg)
+	srv, err := web.New(cfg)
 	if err != nil {
 		t.Fatalf("failed to create server: %s", err)
 	}
@@ -70,7 +95,7 @@ func TestRouterAndResponse(t *testing.T) {
 func TestRouterGroup(t *testing.T) {
 	cfg := DefaultHTTPConfig()
 	cfg.Port = -1
-	srv, err := WebServer(cfg)
+	srv, err := web.New(cfg)
 	if err != nil {
 		t.Fatalf("failed to create server: %s", err)
 	}
@@ -91,7 +116,7 @@ func TestRouterGroup(t *testing.T) {
 func TestNoRoute(t *testing.T) {
 	cfg := DefaultHTTPConfig()
 	cfg.Port = -1
-	srv, err := WebServer(cfg)
+	srv, err := web.New(cfg)
 	if err != nil {
 		t.Fatalf("failed to create server: %s", err)
 	}

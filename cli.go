@@ -131,7 +131,7 @@ func bindFlag(c *cobra.Command, f CmdFlag) {
 // 注册 server 子命令（启动给定的 Web 服务）但不执行 CLI，便于追加定制后再 Execute。
 // 入参: srv (Web 服务实例)
 // 出参: server 子命令（可用于进一步定制）
-func (c *Cli) Serve(srv *WebServerT) *cobra.Command {
+func (c *Cli) Serve(srv *WebServer) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "server",
 		Short: "启动 Web 服务",
@@ -148,7 +148,7 @@ func (c *Cli) Serve(srv *WebServerT) *cobra.Command {
 
 // 注册 server 子命令（启动给定的 Web 服务）并执行 CLI（等价于 Serve + Execute）。
 // 入参: srv (Web 服务实例)
-func (c *Cli) Run(srv *WebServerT) {
+func (c *Cli) Run(srv *WebServer) {
 	c.Serve(srv)
 	c.Execute()
 }

@@ -302,3 +302,72 @@ func TestNewInvalidTrustedProxies(t *testing.T) {
 		t.Fatal("invalid trusted proxies should return error")
 	}
 }
+
+// 验证 8 个 HTTP 方法糖与 ANY 等价于 Router 动态方法。
+func TestMethodSugar(t *testing.T) {
+	cfg := conf.DefaultHTTPConfig()
+	cfg.Port = -1
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
+	ok := func(c *gin.Context) { c.String(200, "ok") }
+	srv.GET("/get", ok)
+	srv.POST("/post", ok)
+	srv.PUT("/put", ok)
+	srv.DELETE("/delete", ok)
+	srv.PATCH("/patch", ok)
+	srv.HEAD("/head", ok)
+	srv.OPTIONS("/options", ok)
+	srv.ANY("/any", ok)
+	cases := []struct{ method, path string }{
+		{http.MethodGet, "/get"},
+		{http.MethodPost, "/post"},
+		{http.MethodPut, "/put"},
+		{http.MethodDelete, "/delete"},
+		{http.MethodPatch, "/patch"},
+		{http.MethodHead, "/head"},
+		{http.MethodOptions, "/options"},
+		{http.MethodGet, "/any"},
+		{http.MethodDelete, "/any"},
+	}
+	for _, tc := range cases {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		srv.Engine().ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s %s should be 200: %d", tc.method, tc.path, w.Code)
+		}
+	}
+}
+
+// 验证 Use 全局中间件与 RouterGroup 方法糖。
+func TestUseAndGroupMethodSugar(t *testing.T) {
+	cfg := conf.DefaultHTTPConfig()
+	cfg.Port = -1
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
+	srv.Use(func(c *gin.Context) {
+		c.Header("X-Global", "on")
+		c.Next()
+	})
+	v1 := srv.Group("/v1")
+	v1.GET("/ping", func(c *gin.Context) { c.String(200, "pong") })
+	v1.POST("/echo", func(c *gin.Context) { c.String(200, "echo") })
+	for _, tc := range []struct{ method, path, body string }{
+		{http.MethodGet, "/v1/ping", "pong"},
+		{http.MethodPost, "/v1/echo", "echo"},
+	} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		srv.Engine().ServeHTTP(w, req)
+		if w.Code != http.StatusOK || w.Body.String() != tc.body {
+			t.Fatalf("%s %s should be 200 %q: %d %q", tc.method, tc.path, tc.body, w.Code, w.Body.String())
+		}
+		if w.Header().Get("X-Global") != "on" {
+			t.Fatalf("global middleware should apply to %s %s", tc.method, tc.path)
+		}
+	}
+}
