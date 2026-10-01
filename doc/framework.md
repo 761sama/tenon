@@ -240,7 +240,7 @@ server.GET("/ping", directMiddleware, pingCtrl)            // 也可直接传函
 
 ### 请求 ID（requestid 模块）
 
-在 `WebAppOptions.Enable` 里加入 `tenon.ModuleRequestID` 启用（默认不开）：请求已携带 `X-Request-Id` 时以请求为准，缺失则生成；写入 gin context（键 `web.RequestIDKey`）与响应头。手工装配时直接 `server.Use(web.RequestIDMiddleware())`。
+在 `WebAppOptions.Enable` 里加入 `tenon.ModuleRequestID` 启用（默认不开）：请求已携带**合法的** `X-Request-Id`（1~64 字符，仅字母/数字/短横线/下划线/点号）时以请求为准，缺失或非法则重新生成（客户端值会进入响应头与日志，白名单校验防注入）；写入 gin context（键 `web.RequestIDKey`）与响应头。手工装配时直接 `server.Use(web.RequestIDMiddleware())`。
 
 ### 请求绑定（tenon.Bind）
 

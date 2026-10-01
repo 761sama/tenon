@@ -47,6 +47,53 @@ func TestRequestIDMiddleware(t *testing.T) {
 	}
 }
 
+// 验证非法客户端请求 ID 不回显：长度超限或含非法字符时重新生成。
+func TestRequestIDMiddlewareRejectsInvalid(t *testing.T) {
+	cfg := conf.DefaultHTTPConfig()
+	cfg.Port = -1
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
+	srv.Use(RequestIDMiddleware())
+	srv.GET("/ping", func(c *gin.Context) {
+		c.String(200, c.GetString(RequestIDKey))
+	})
+	// 非法输入：超长、含空格、含斜杠、含中文、含控制字符、含引号
+	invalid := []string{
+		strings.Repeat("a", 65),
+		"req 123",
+		"req/123",
+		"请求-123",
+		"req\t123",
+		`req"123`,
+	}
+	for _, bad := range invalid {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+		req.Header.Set(RequestIDHeader, bad)
+		srv.Engine().ServeHTTP(w, req)
+		got := w.Body.String()
+		if got == bad || w.Header().Get(RequestIDHeader) == bad {
+			t.Fatalf("invalid id %q should not be echoed: body=%q", bad, got)
+		}
+		if !validRequestID(got) {
+			t.Fatalf("fallback id should be valid: %q", got)
+		}
+	}
+	// 合法边界：恰好 64 字符与全部允许字符
+	valid := []string{strings.Repeat("a", 64), "Abc-123_X.Y"}
+	for _, good := range valid {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+		req.Header.Set(RequestIDHeader, good)
+		srv.Engine().ServeHTTP(w, req)
+		if w.Body.String() != good {
+			t.Fatalf("valid id %q should be echoed: %q", good, w.Body.String())
+		}
+	}
+}
+
 // 验证 Bind：按 Content-Type 绑定，失败仅返回错误不写响应。
 func TestBind(t *testing.T) {
 	type form struct {
