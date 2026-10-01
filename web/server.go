@@ -2,10 +2,12 @@ package web
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -24,6 +26,7 @@ import (
 type WebServer struct {
 	cfg      conf.HTTPConfig
 	engine   *gin.Engine
+	tlsMin   uint16 // HTTPS 最低 TLS 版本（由 cfg.TLSMinVersion 构造期解析）
 	running  atomic.Bool
 	httpSrv  *http.Server
 	httpsSrv *http.Server
@@ -41,6 +44,10 @@ func New(cfg conf.HTTPConfig) (*WebServer, error) {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	common.SetDebug(cfg.Debug)
+	tlsMin, err := parseTLSMinVersion(cfg.TLSMinVersion)
+	if err != nil {
+		return nil, err
+	}
 	engine := gin.New()
 	engine.ContextWithFallback = true
 	if err := engine.SetTrustedProxies(cfg.TrustedProxies); err != nil {
@@ -48,6 +55,9 @@ func New(cfg conf.HTTPConfig) (*WebServer, error) {
 	}
 	engine.Use(gin.LoggerWithWriter(log.StandardLogger().Out))
 	engine.Use(RecoveryMiddleware())
+	if !cfg.DisableSecureHeaders {
+		engine.Use(SecureHeadersMiddleware())
+	}
 	engine.Use(CorsMiddleware(cfg))
 	engine.Use(MaxBodySizeMiddleware(cfg.MaxBodySize))
 	engine.NoRoute(NoRouteHandle)
@@ -55,7 +65,21 @@ func New(cfg conf.HTTPConfig) (*WebServer, error) {
 	if cfg.EnableQUIC {
 		engine.Use(AltSvcMiddleware(cfg.HTTPSPort))
 	}
-	return &WebServer{cfg: cfg, engine: engine}, nil
+	return &WebServer{cfg: cfg, engine: engine, tlsMin: tlsMin}, nil
+}
+
+// 解析最低 TLS 版本：空值与 "1.2" 均为 TLS 1.2（安全下限，不随 Go 默认值漂移），"1.3" 仅 TLS 1.3。
+// 入参: v (配置的 tls_min_version 值)
+// 出参: tls 版本常量与错误（未知值报错，构造期尽早暴露）
+func parseTLSMinVersion(v string) (uint16, error) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "", "1.2":
+		return tls.VersionTLS12, nil
+	case "1.3":
+		return tls.VersionTLS13, nil
+	default:
+		return 0, fmt.Errorf("unsupported tls_min_version %q (expect \"1.2\" or \"1.3\")", v)
+	}
 }
 
 // 获取底层 gin 引擎，用于注册框架未封装的能力。
@@ -235,14 +259,18 @@ func durationOrDefault(v, def time.Duration) time.Duration {
 }
 
 // 构建并启动单个 HTTP/HTTPS 监听。
-// 入参: address (监听地址), port (端口), tls (是否启用 TLS)
+// 入参: address (监听地址), port (端口), useTLS (是否启用 TLS)
 // 出参: http.Server 实例
-func (s *WebServer) buildServer(address string, port int, tls bool) *http.Server {
+func (s *WebServer) buildServer(address string, port int, useTLS bool) *http.Server {
 	srv := s.newHTTPServer(address, port)
+	if useTLS {
+		// 证书由 ListenAndServeTLS 加载进该配置的克隆；QUIC 协议本身强制 TLS 1.3，无需此项
+		srv.TLSConfig = &tls.Config{MinVersion: s.tlsMin}
+	}
 	base := srv.Addr
 	go func() {
 		var err error
-		if tls {
+		if useTLS {
 			log.Infof("start HTTPS server @ %s", base)
 			err = srv.ListenAndServeTLS(s.cfg.CertFile, s.cfg.KeyFile)
 		} else {

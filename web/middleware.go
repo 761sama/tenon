@@ -46,6 +46,22 @@ func CorsMiddleware(cfg conf.HTTPConfig) gin.HandlerFunc {
 	return cors.New(config)
 }
 
+// 安全响应头中间件：附加 X-Content-Type-Options / X-Frame-Options / Referrer-Policy；
+// TLS 请求额外附加 HSTS（一年，含子域）。默认随 web.New 开启，可用 DisableSecureHeaders 关闭。
+// 出参: gin 中间件函数
+func SecureHeadersMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		h := c.Writer.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		if c.Request.TLS != nil {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		c.Next()
+	}
+}
+
 // 请求体大小限制中间件：Content-Length 超限直接 413；
 // 同时以 MaxBytesReader 包裹请求体，覆盖 chunked 传输场景。
 // 入参: max (最大字节数，负数表示不限制，0 使用默认值 32MB)

@@ -95,6 +95,8 @@ cli.Add(tenon.Command{
 | Port / HTTPSPort | 监听端口，-1 表示禁用对应协议 |
 | CertFile / KeyFile | HTTPS 证书（相对路径基于工作目录解析） |
 | EnableQUIC | 启用 QUIC (HTTP/3)：与 HTTPS 同地址监听，TLS 请求自动附加 `Alt-Svc: h3=":端口"` 响应头引导客户端升级 |
+| TLSMinVersion | HTTPS 最低 TLS 版本：`""`/`"1.2"` 默认 TLS 1.2（安全下限，不随 Go 默认值漂移），`"1.3"` 仅 TLS 1.3；非法值构造期报错。QUIC 协议本身强制 TLS 1.3，不受此项影响 |
+| DisableSecureHeaders | 关闭内置安全响应头（默认开启）：`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`，TLS 请求附加 `Strict-Transport-Security: max-age=31536000; includeSubDomains` |
 | TrustedProxies | 可信代理，防止 X-Forwarded-For 伪造 |
 | AllowOrigins | CORS 允许的来源：**为空表示关闭跨域**（安全基线，不附加任何 CORS 头），["*"] 允许所有来源，或指定来源列表 |
 | AllowMethods/Headers | CORS 允许的方法/请求头（仅在 AllowOrigins 非空时生效） |

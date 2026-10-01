@@ -11,6 +11,8 @@ type HTTPConfig struct {
 	CertFile          string        `json:"cert_file"`           // TLS 证书文件路径（相对路径基于工作目录解析）
 	KeyFile           string        `json:"key_file"`            // TLS 私钥文件路径（相对路径基于工作目录解析）
 	EnableQUIC        bool          `json:"enable_quic"`         // 是否启用 QUIC (HTTP/3)，与 HTTPS 同地址监听并自动附加 Alt-Svc 响应头
+	TLSMinVersion     string        `json:"tls_min_version"`     // HTTPS 最低 TLS 版本：""/"1.2" 默认 TLS 1.2，"1.3" 仅 TLS 1.3；非法值构造期报错（QUIC 协议本身强制 TLS 1.3，不受此项影响）
+	DisableSecureHeaders bool       `json:"disable_secure_headers"` // 关闭内置安全响应头（X-Content-Type-Options/X-Frame-Options/Referrer-Policy，TLS 请求附加 HSTS），默认开启
 	TrustedProxies    []string      `json:"trusted_proxies"`     // 可信反向代理 IP/IP 段(CIDR)，为空表示不信任任何代理
 	AllowOrigins      []string      `json:"allow_origins"`       // CORS 允许的来源列表，为空表示关闭跨域，["*"] 表示允许所有来源
 	AllowMethods      []string      `json:"allow_methods"`       // CORS 允许的请求方法列表

@@ -127,6 +127,10 @@ func TestHTTPSAndQUIC(t *testing.T) {
 	if !strings.Contains(altSvc, fmt.Sprintf(`h3=":%d"`, port)) {
 		t.Fatalf("missing Alt-Svc header: %q", altSvc)
 	}
+	// TLS 请求应附加 HSTS 安全头
+	if resp.Header.Get("Strict-Transport-Security") == "" {
+		t.Fatal("https response should carry HSTS header")
+	}
 	// QUIC 请求：http3 客户端直连
 	rt := &http3.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	defer rt.Close()
@@ -249,6 +253,96 @@ func TestCors(t *testing.T) {
 	w = preflight(srv, "https://any.example")
 	if w.Header().Get("Access-Control-Allow-Origin") != "*" {
 		t.Fatalf("wildcard origin should return *: %q", w.Header().Get("Access-Control-Allow-Origin"))
+	}
+}
+
+// 验证安全响应头：默认附加 nosniff/禁嵌入/no-referrer（纯 HTTP 不带 HSTS），可配置关闭。
+func TestSecureHeaders(t *testing.T) {
+	newServer := func(disable bool) *WebServer {
+		cfg := conf.DefaultHTTPConfig()
+		cfg.Port = -1
+		cfg.DisableSecureHeaders = disable
+		srv, err := New(cfg)
+		if err != nil {
+			t.Fatalf("failed to create server: %s", err)
+		}
+		srv.Router("GET", "/ping", func(c *gin.Context) { c.String(200, "pong") })
+		return srv
+	}
+	// 默认开启：三个基础头存在，纯 HTTP 不附加 HSTS
+	srv := newServer(false)
+	w := httptest.NewRecorder()
+	srv.Engine().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ping", nil))
+	h := w.Header()
+	if h.Get("X-Content-Type-Options") != "nosniff" || h.Get("X-Frame-Options") != "DENY" || h.Get("Referrer-Policy") != "no-referrer" {
+		t.Fatalf("missing secure headers: %v", h)
+	}
+	if h.Get("Strict-Transport-Security") != "" {
+		t.Fatal("plain http should not carry HSTS")
+	}
+	// 配置关闭：不附加任何安全头
+	srv = newServer(true)
+	w = httptest.NewRecorder()
+	srv.Engine().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ping", nil))
+	h = w.Header()
+	if h.Get("X-Content-Type-Options") != "" || h.Get("X-Frame-Options") != "" || h.Get("Referrer-Policy") != "" {
+		t.Fatalf("secure headers should be disabled: %v", h)
+	}
+}
+
+// 验证 TLS 最低版本配置：默认 TLS 1.2，非法值构造期报错，"1.3" 拒绝 TLS 1.2 握手。
+func TestTLSMinVersion(t *testing.T) {
+	// 解析行为：默认/1.2 -> TLS1.2，1.3 -> TLS1.3，非法报错
+	cfg := conf.DefaultHTTPConfig()
+	cfg.Port = -1
+	srv, err := New(cfg)
+	if err != nil || srv.tlsMin != tls.VersionTLS12 {
+		t.Fatalf("default should be TLS 1.2: %d, %v", srv.tlsMin, err)
+	}
+	cfg.TLSMinVersion = "1.3"
+	if srv, err = New(cfg); err != nil || srv.tlsMin != tls.VersionTLS13 {
+		t.Fatalf("explicit 1.3 should be respected: %d, %v", srv.tlsMin, err)
+	}
+	cfg.TLSMinVersion = "1.1"
+	if _, err = New(cfg); err == nil {
+		t.Fatal("unsupported tls_min_version should return error")
+	}
+	// 真实握手：TLSMinVersion=1.3 的服务拒绝 TLS 1.2 客户端，接受 TLS 1.3 客户端
+	certFile, keyFile := genSelfSignedCert(t)
+	port := freePort(t)
+	cfg = conf.DefaultHTTPConfig()
+	cfg.Port = -1
+	cfg.HTTPSPort = port
+	cfg.CertFile = certFile
+	cfg.KeyFile = keyFile
+	cfg.TLSMinVersion = "1.3"
+	srv, err = New(cfg)
+	if err != nil {
+		t.Fatalf("failed to create server: %s", err)
+	}
+	srv.Router("GET", "/ping", func(c *gin.Context) { c.String(200, "pong") })
+	if err := srv.Start(); err != nil {
+		t.Fatalf("failed to start server: %s", err)
+	}
+	defer srv.Stop(3 * time.Second)
+	time.Sleep(500 * time.Millisecond)
+	base := fmt.Sprintf("https://127.0.0.1:%d", port)
+	client := func(max uint16) *http.Client {
+		return &http.Client{
+			Timeout:   5 * time.Second,
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true, MaxVersion: max}},
+		}
+	}
+	if _, err := client(tls.VersionTLS12).Get(base + "/ping"); err == nil {
+		t.Fatal("TLS 1.2 client should be rejected when min version is 1.3")
+	}
+	resp, err := client(tls.VersionTLS13).Get(base + "/ping")
+	if err != nil {
+		t.Fatalf("TLS 1.3 client should succeed: %s", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 || resp.TLS == nil || resp.TLS.Version != tls.VersionTLS13 {
+		t.Fatalf("unexpected TLS 1.3 response: %d %+v", resp.StatusCode, resp.TLS)
 	}
 }
 
