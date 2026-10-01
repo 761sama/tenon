@@ -4,25 +4,25 @@ import "time"
 
 // HTTPConfig 为 Web 服务配置，tenon.WebServer 仅需此配置。
 type HTTPConfig struct {
-	Debug             bool          `json:"debug"`               // 调试模式：gin 调试模式、详细错误返回
-	Address           string        `json:"address"`             // 监听地址，默认 0.0.0.0
-	Port              int           `json:"port"`                // HTTP 端口，-1 表示禁用 HTTP
-	HTTPSPort         int           `json:"https_port"`          // HTTPS 端口，-1 表示禁用 HTTPS
-	CertFile          string        `json:"cert_file"`           // TLS 证书文件路径（相对路径基于工作目录解析）
-	KeyFile           string        `json:"key_file"`            // TLS 私钥文件路径（相对路径基于工作目录解析）
-	EnableQUIC        bool          `json:"enable_quic"`         // 是否启用 QUIC (HTTP/3)，与 HTTPS 同地址监听并自动附加 Alt-Svc 响应头
-	TLSMinVersion     string        `json:"tls_min_version"`     // HTTPS 最低 TLS 版本：""/"1.2" 默认 TLS 1.2，"1.3" 仅 TLS 1.3；非法值构造期报错（QUIC 协议本身强制 TLS 1.3，不受此项影响）
-	DisableSecureHeaders bool       `json:"disable_secure_headers"` // 关闭内置安全响应头（X-Content-Type-Options/X-Frame-Options/Referrer-Policy，TLS 请求附加 HSTS），默认开启
-	TrustedProxies    []string      `json:"trusted_proxies"`     // 可信反向代理 IP/IP 段(CIDR)，为空表示不信任任何代理
-	AllowOrigins      []string      `json:"allow_origins"`       // CORS 允许的来源列表，为空表示关闭跨域，["*"] 表示允许所有来源
-	AllowMethods      []string      `json:"allow_methods"`       // CORS 允许的请求方法列表
-	AllowHeaders      []string      `json:"allow_headers"`       // CORS 允许的请求头列表
-	MaxBodySize       int64         `json:"max_body_size"`       // 请求体最大字节数，0 使用默认值 32MB，负数表示不限制
-	ReadHeaderTimeout time.Duration `json:"read_header_timeout"` // 读取请求头超时（防 Slowloris），0 使用默认值 10s
-	ReadTimeout       time.Duration `json:"read_timeout"`        // 读超时（纳秒），0 使用默认值 30s
-	WriteTimeout      time.Duration `json:"write_timeout"`       // 写超时（纳秒），0 使用默认值 30s
-	IdleTimeout       time.Duration `json:"idle_timeout"`        // Keep-Alive 空闲连接超时，0 使用默认值 120s
-	ShutdownTimeout   time.Duration `json:"shutdown_timeout"`    // 优雅停机超时（纳秒），0 使用默认值 5s
+	Debug                bool          `json:"debug"`                  // 调试模式：gin 调试模式、详细错误返回
+	Address              string        `json:"address"`                // 监听地址，默认 0.0.0.0
+	Port                 int           `json:"port"`                   // HTTP 端口，-1 表示禁用 HTTP
+	HTTPSPort            int           `json:"https_port"`             // HTTPS 端口，-1 表示禁用 HTTPS
+	CertFile             string        `json:"cert_file"`              // TLS 证书文件路径（相对路径基于工作目录解析）
+	KeyFile              string        `json:"key_file"`               // TLS 私钥文件路径（相对路径基于工作目录解析）
+	EnableQUIC           bool          `json:"enable_quic"`            // 是否启用 QUIC (HTTP/3)，与 HTTPS 同地址监听并自动附加 Alt-Svc 响应头
+	TLSMinVersion        string        `json:"tls_min_version"`        // HTTPS 最低 TLS 版本：""/"1.2" 默认 TLS 1.2，"1.3" 仅 TLS 1.3；非法值构造期报错（QUIC 协议本身强制 TLS 1.3，不受此项影响）
+	DisableSecureHeaders bool          `json:"disable_secure_headers"` // 关闭内置安全响应头（X-Content-Type-Options/X-Frame-Options/Referrer-Policy，TLS 请求附加 HSTS），默认开启
+	TrustedProxies       []string      `json:"trusted_proxies"`        // 可信反向代理 IP/IP 段(CIDR)，为空表示不信任任何代理
+	AllowOrigins         []string      `json:"allow_origins"`          // CORS 允许的来源列表，为空表示关闭跨域，["*"] 表示允许所有来源
+	AllowMethods         []string      `json:"allow_methods"`          // CORS 允许的请求方法列表
+	AllowHeaders         []string      `json:"allow_headers"`          // CORS 允许的请求头列表
+	MaxBodySize          int64         `json:"max_body_size"`          // 请求体最大字节数，0 使用默认值 32MB，负数表示不限制
+	ReadHeaderTimeout    time.Duration `json:"read_header_timeout"`    // 读取请求头超时（防 Slowloris），0 使用默认值 10s
+	ReadTimeout          time.Duration `json:"read_timeout"`           // 读超时（纳秒），0 使用默认值 30s
+	WriteTimeout         time.Duration `json:"write_timeout"`          // 写超时（纳秒），0 使用默认值 30s
+	IdleTimeout          time.Duration `json:"idle_timeout"`           // Keep-Alive 空闲连接超时，0 使用默认值 120s
+	ShutdownTimeout      time.Duration `json:"shutdown_timeout"`       // 优雅停机超时（纳秒），0 使用默认值 5s
 }
 
 // 构造默认 HTTP 配置，使用方可在此基础上按需修改。
