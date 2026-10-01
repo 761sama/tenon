@@ -236,6 +236,35 @@ func TestPoolConfigMySQL(t *testing.T) {
 	}
 }
 
+// 验证 MySQL ssl_mode 到 driver TLS 配置名的映射：合法值通过，未知值报错。
+func TestMySQLTLSConfigName(t *testing.T) {
+	cases := map[string]string{
+		"":            "",
+		"disabled":    "",
+		"DISABLED":    "",
+		"required":    "true",
+		"Required":    "true",
+		"skip-verify": "skip-verify",
+		"preferred":   "preferred",
+	}
+	for mode, want := range cases {
+		got, err := mysqlTLSConfigName(mode)
+		if err != nil || got != want {
+			t.Fatalf("ssl_mode %q should map to %q: got %q, %v", mode, want, got, err)
+		}
+	}
+	for _, bad := range []string{"verify-ca", "on", "true", "ssl"} {
+		if _, err := mysqlTLSConfigName(bad); err == nil {
+			t.Fatalf("unknown ssl_mode %q should be rejected", bad)
+		}
+	}
+	// 非法 ssl_mode 应在构建 dialector 阶段报错（无需真实 MySQL）
+	node := conf.DBNodeConfig{Host: "127.0.0.1", User: "u", Name: "db", SSLMode: "verify-ca"}
+	if _, err := buildDialector("mysql", node); err == nil {
+		t.Fatal("invalid ssl_mode should fail dialector build")
+	}
+}
+
 // 验证非法从库配置：降级跳过不影响主库初始化，且输出告警日志（不再静默吞错）。
 func TestReplicaInvalidSkipped(t *testing.T) {
 	var buf bytes.Buffer

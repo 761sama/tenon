@@ -123,6 +123,25 @@ func applyPool(sqlDB *sql.DB, dbType string, node conf.DBNodeConfig) {
 	}
 }
 
+// 将 SSLMode 映射为 go-sql-driver 的 TLS 配置名（DSN 可序列化，driver 侧再构造 tls.Config）。
+// required 由 driver 以系统根证书验证并将 ServerName 取为 host；空值保持明文（历史默认行为）。
+// 入参: sslMode (节点配置的 ssl_mode 值)
+// 出参: driver TLS 配置名与错误（未知模式报错，启动期尽早暴露）
+func mysqlTLSConfigName(sslMode string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(sslMode)) {
+	case "", "disabled":
+		return "", nil
+	case "required":
+		return "true", nil
+	case "skip-verify":
+		return "skip-verify", nil
+	case "preferred":
+		return "preferred", nil
+	default:
+		return "", fmt.Errorf("unsupported mysql ssl_mode %q (expect disabled/required/skip-verify/preferred)", sslMode)
+	}
+}
+
 // 构建单个节点的数据库 dialector。
 // 入参: dbType (数据库类型), node (节点配置)
 // 出参: dialector 与错误
@@ -159,6 +178,11 @@ func buildDialector(dbType string, node conf.DBNodeConfig) (gorm.Dialector, erro
 		mysqlConf.ParseTime = true
 		mysqlConf.Loc = time.Local
 		mysqlConf.Params = map[string]string{"charset": "utf8mb4"}
+		tlsName, err := mysqlTLSConfigName(node.SSLMode)
+		if err != nil {
+			return nil, err
+		}
+		mysqlConf.TLSConfig = tlsName
 		return gormmysql.Open(mysqlConf.FormatDSN()), nil
 	case "postgres":
 		return nil, fmt.Errorf("postgres driver not yet implemented")

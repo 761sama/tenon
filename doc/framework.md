@@ -157,6 +157,8 @@ tenon.DB.IsAvailable()                            // 是否已初始化
 
 列名注入防护：仅允许字母/数字/下划线组成的标识符（支持 `table.column` 点号分段，分段各自加引用符），其他输入一律拒绝。
 
+MySQL 链路加密（节点配置 `SSLMode`，主从节点各自独立）：空/`disabled` 明文（默认）；`required` 强制 TLS 并验证证书（系统根证书，ServerName 取 Host）；`skip-verify` 强制 TLS 但跳过证书验证；`preferred` 优先 TLS、失败回落明文。未知值在初始化期报错。
+
 ### 连接池配置（DBNodeConfig）
 
 | 字段 | 说明 | 默认值 |
@@ -188,6 +190,8 @@ Redis 采用**显式初始化**，不随 `tenon.WebServer` 自动初始化：
 
 ```go
 err := tenon.Redis.Init(tenon.RedisConfig{Host: "127.0.0.1", Port: 6379})
+// 跨网络部署可启用链路加密与 ACL：tenon.RedisConfig{..., Username: "app", TLS: true}
+// （Username 为 Redis 6+ ACL 用户名；TLS 以系统根证书验证、ServerName 取 Host、最低 TLS 1.2）
 tenon.Redis.Set("value", "key1", "key2")        // 键片段以冒号拼接为 key1:key2
 val, _ := tenon.Redis.Get("key1", "key2")
 tenon.Redis.SetWithTTL("v", time.Minute, "k")   // 带过期时间

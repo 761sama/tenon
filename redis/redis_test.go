@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"crypto/tls"
 	"errors"
 	"testing"
 	"time"
@@ -39,6 +40,30 @@ func TestUnavailable(t *testing.T) {
 	}
 	if err := Init(conf.RedisConfig{}); !errors.Is(err, ErrRedisNotConfigured) {
 		t.Fatalf("expected ErrRedisNotConfigured, got: %v", err)
+	}
+}
+
+// 验证客户端选项构建：ACL 用户名透传；TLS 开启时证书验证配置正确（ServerName 取 Host、最低 TLS 1.2）。
+func TestBuildOptions(t *testing.T) {
+	opt := buildOptions(conf.RedisConfig{Host: "127.0.0.1", Port: 6379, Password: "p"})
+	if opt.Addr != "127.0.0.1:6379" || opt.Username != "" || opt.Password != "p" {
+		t.Fatalf("unexpected basic options: %+v", opt)
+	}
+	if opt.TLSConfig != nil {
+		t.Fatal("tls should be off by default")
+	}
+	opt = buildOptions(conf.RedisConfig{Host: "redis.example", Port: 6380, Username: "app", TLS: true})
+	if opt.Username != "app" {
+		t.Fatalf("acl username should pass through: %q", opt.Username)
+	}
+	if opt.TLSConfig == nil {
+		t.Fatal("tls config should be set when enabled")
+	}
+	if opt.TLSConfig.InsecureSkipVerify {
+		t.Fatal("certificate verification must stay on")
+	}
+	if opt.TLSConfig.ServerName != "redis.example" || opt.TLSConfig.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("unexpected tls config: %+v", opt.TLSConfig)
 	}
 }
 

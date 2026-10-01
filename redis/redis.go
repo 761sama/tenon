@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"strings"
@@ -42,6 +43,22 @@ func Init(cfg conf.RedisConfig) error {
 	return InitNamed(DefaultName, cfg)
 }
 
+// 构建 go-redis 客户端选项：TLS 开启时以系统根证书验证、ServerName 取 Host、最低 TLS 1.2。
+// 入参: cfg (Redis 配置)
+// 出参: go-redis 客户端选项
+func buildOptions(cfg conf.RedisConfig) *goredis.Options {
+	opt := &goredis.Options{
+		Addr:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		Username: cfg.Username,
+		Password: cfg.Password,
+		DB:       cfg.DB,
+	}
+	if cfg.TLS {
+		opt.TLSConfig = &tls.Config{ServerName: cfg.Host, MinVersion: tls.VersionTLS12}
+	}
+	return opt
+}
+
 // 显式初始化命名 Redis 实例，同名重复初始化会覆盖旧实例（旧连接随之关闭）。
 // 入参: name (实例名称), cfg (Redis 配置)
 // 出参: 未配置或连接失败时返回错误
@@ -50,11 +67,7 @@ func InitNamed(name string, cfg conf.RedisConfig) error {
 		return fmt.Errorf("%w: redis address is empty", ErrRedisNotConfigured)
 	}
 	address := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	rdb := goredis.NewClient(&goredis.Options{
-		Addr:     address,
-		Password: cfg.Password,
-		DB:       cfg.DB,
-	})
+	rdb := goredis.NewClient(buildOptions(cfg))
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if _, err := rdb.Ping(ctx).Result(); err != nil {

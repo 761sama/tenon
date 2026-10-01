@@ -70,7 +70,7 @@ type DBNodeConfig struct {
 	Password        string        `json:"password"`           // 数据库密码
 	Name            string        `json:"name"`               // 数据库名称
 	DBFile          string        `json:"db_file"`            // SQLite 文件路径（相对路径基于工作目录解析）
-	SSLMode         string        `json:"ssl_mode"`           // SSL 模式（MySQL 暂不使用，预留给 Postgres 系）
+	SSLMode         string        `json:"ssl_mode"`           // TLS 模式（仅 MySQL 生效）：空/disabled 明文（默认）；required 强制 TLS 并验证证书；skip-verify 强制 TLS 跳过证书验证；preferred 优先 TLS 失败回落明文
 	TablePrefix     string        `json:"table_prefix"`       // 表前缀（仅主库生效）
 	MaxOpenConns    int           `json:"max_open_conns"`     // 最大打开连接数，0 使用类型默认值（mysql 50 / sqlite 1）
 	MaxIdleConns    int           `json:"max_idle_conns"`     // 最大空闲连接数，0 使用类型默认值（mysql 10）
@@ -82,6 +82,8 @@ type DBNodeConfig struct {
 type RedisConfig struct {
 	Host     string `json:"host"`     // Redis 主机
 	Port     int    `json:"port"`     // Redis 端口
+	Username string `json:"username"` // ACL 用户名（Redis 6+，可空）
 	Password string `json:"password"` // Redis 密码
 	DB       int    `json:"db"`       // Redis 编号
+	TLS      bool   `json:"tls"`      // 是否启用 TLS：系统根证书验证，ServerName 取 Host，最低 TLS 1.2
 }
