@@ -212,6 +212,7 @@ cache.Set("v", "key")                           // 实例方法与默认门面�
 
 - 未初始化或连接不可用时，各操作返回哨兵错误 `redis.ErrRedisUnavailable`，供调用方降级处理
 - 初始化成功后自动注册停机释放，`server.Stop` 时自动关闭全部实例连接
+- ⚠ `Keys(pattern...)` 底层为 KEYS 命令：O(N) 全库扫描且阻塞实例，仅用于小键空间或运维场景；**禁止把用户输入拼入 pattern**（键枚举/阻塞风险），大键空间请经 `tenon.Redis.Client()` 使用 SCAN
 
 ## 日志
 

@@ -136,7 +136,8 @@ func (Ops) IncrWithTTL(ttl time.Duration, key ...string) (int64, error) {
 	return Default().IncrWithTTL(ttl, key...)
 }
 
-// 匹配键。
+// 匹配键。底层为 KEYS 命令，O(N) 全库扫描且阻塞实例：
+// 仅用于小键空间或运维场景，禁止把用户输入拼入 pattern；大键空间请经 Client() 使用 SCAN。
 func (Ops) Keys(pattern ...string) ([]string, error) { return Default().Keys(pattern...) }
 
 // 设置过期时间。
@@ -262,7 +263,8 @@ func (i *Instance) IncrWithTTL(ttl time.Duration, key ...string) (int64, error) 
 	return incrWithTTL(i.client, ttl, key...)
 }
 
-// 匹配键。
+// 匹配键。底层为 KEYS 命令，O(N) 全库扫描且阻塞实例：
+// 仅用于小键空间或运维场景，禁止把用户输入拼入 pattern；大键空间请经 Client() 使用 SCAN。
 func (i *Instance) Keys(pattern ...string) ([]string, error) { return keys(i.client, pattern...) }
 
 // 设置过期时间。

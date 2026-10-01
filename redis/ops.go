@@ -261,7 +261,7 @@ func getTTL(r *goredis.Client, key ...string) (time.Duration, error) {
 	return r.TTL(ctx, BuildKey(key...)).Result()
 }
 
-// 获取所有匹配的键。
+// 获取所有匹配的键。底层为 KEYS 命令，O(N) 全库扫描且阻塞实例，调用方需控制 pattern 来源。
 func keys(r *goredis.Client, pattern ...string) ([]string, error) {
 	if r == nil {
 		return []string{}, ErrRedisUnavailable
