@@ -16,6 +16,8 @@ import (
 	"gorm.io/gorm/schema"
 	"gorm.io/plugin/dbresolver"
 
+	log "github.com/sirupsen/logrus"
+
 	"gopkg.761sama.com/tenon/conf"
 )
 
@@ -52,6 +54,8 @@ func connect(cfg conf.DatabaseConfig, debug bool) (*gorm.DB, error) {
 		for _, replica := range cfg.Replicas {
 			d, err := buildDialector(cfg.Type, replica)
 			if err != nil {
+				// 从库配置错误仅降级跳过（不影响主库），但必须留下告警日志便于运维定位
+				log.Warnf("skip invalid replica (host=%q port=%d name=%q): %s", replica.Host, replica.Port, replica.Name, err)
 				continue
 			}
 			replicaDialectors = append(replicaDialectors, d)

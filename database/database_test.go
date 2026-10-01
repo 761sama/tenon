@@ -1,9 +1,13 @@
 package database
 
 import (
+	"bytes"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"gopkg.761sama.com/tenon/conf"
 )
@@ -229,6 +233,31 @@ func TestPoolConfigMySQL(t *testing.T) {
 	sqlDB, _ = GetDB().DB()
 	if sqlDB.Stats().MaxOpenConnections != 20 {
 		t.Fatalf("explicit MaxOpenConns should be respected: %d", sqlDB.Stats().MaxOpenConnections)
+	}
+}
+
+// 验证非法从库配置：降级跳过不影响主库初始化，且输出告警日志（不再静默吞错）。
+func TestReplicaInvalidSkipped(t *testing.T) {
+	var buf bytes.Buffer
+	old := log.StandardLogger().Out
+	log.SetOutput(&buf)
+	defer log.SetOutput(old)
+	cfg := conf.DatabaseConfig{
+		Type:   "sqlite3",
+		Master: conf.DBNodeConfig{DBFile: filepath.Join(t.TempDir(), "master.db")},
+		Replicas: []conf.DBNodeConfig{
+			{DBFile: "replica-noext"}, // 不以 .db 结尾，buildDialector 拒绝
+		},
+	}
+	if err := Init(cfg, false); err != nil {
+		t.Fatalf("invalid replica should not fail master init: %s", err)
+	}
+	defer CloseAll()
+	if !IsAvailable() {
+		t.Fatal("master should stay available")
+	}
+	if !strings.Contains(buf.String(), "skip invalid replica") {
+		t.Fatalf("replica skip should log a warning, got: %q", buf.String())
 	}
 }
 
