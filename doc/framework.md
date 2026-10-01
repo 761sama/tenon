@@ -4,32 +4,46 @@
 
 ```
 使用方业务分层：router -> controller -> handler -> model -> dao
-框架支撑：web(gin) 仅依赖 HTTP 配置；logx / database / redis 按需显式初始化
+框架支撑：app 装配层编排生命周期；web(gin) 仅依赖 HTTP 配置；logx / database / redis 按需显式初始化
 ```
 
 核心设计原则：**注册制 + 按需启用 + 显式初始化**。
 
-- Web 服务：`tenon.WebServer(tenon.HTTPConfig{...})` 只接收 HTTP/Web 相关配置
+- 预制应用：`tenon.NewWebApp(tenon.WebAppOptions{...})` 一行装配——主服务（HTTP）恒定启动，可选模块按 `Enable` 清单加载（详见 [app.md](app.md)）
+- 手工装配：`web.New(tenon.HTTPConfig{...})` 创建 Web 服务（仅构建 gin 引擎）
 - 数据库：`tenon.DB.Init(...)` 显式初始化后使用，未初始化时不影响 Web 服务运行
 - Redis：`tenon.Redis.Init(...)` 显式初始化后使用
 - 日志：`tenon.InitLog(...)` 显式初始化文件切割输出，不调用时输出到标准错误
 - 模型注册：`tenon.DB.RegisterModels(...)`，数据库初始化时自动迁移；已初始化后注册则立即迁移
-- 中间件注册：`tenon.RegMiddleware("名称", mw)`，取用 `tenon.Middleware("名称")`
-- 初始化模块扩展点：`bootstrap.RegisterInitModule("名称", fn)` 注册（`fn` 签名为 `func(args ...string) error`），`bootstrap.Init(args...)` 按注册顺序执行、失败即中断并返回错误（由调用方决定 Fatal 或降级），`bootstrap.TinyInit(name, args...)` 执行单个模块
+- 中间件注册：`tenon.RegMiddleware("名称", mw)` 注册即返回句柄，取用 `tenon.Middleware("名称")`
 - 资源释放注册：`bootstrap.RegisterRelease("名称", fn)`，停机时按注册逆序执行（数据库/Redis 初始化时自动注册）
 
 ## 快速开始
 
-### 直接运行
+### WebApp 装配（推荐）
 
 ```go
-cfg := tenon.DefaultHTTPConfig()     // 默认 HTTP 配置，纯结构体，可按需修改
+application := tenon.NewWebApp(tenon.WebAppOptions{
+	HTTP: tenon.DefaultHTTPConfig(),     // 默认 HTTP 配置，纯结构体，可按需修改
+	Enable: []string{tenon.ModuleLog},   // 可选模块启用清单；主服务（HTTP）恒定启动
+})
+s := application.Server()               // 取底层 Web 服务注册路由
+s.GET("/ping", tenon.Middleware("mark"), controller)
+v1 := s.Group("/v1")                    // 路由组
+v1.POST("/users", createUserCtrl)
+application.Run()                       // 初始化 -> 启动主服务 -> 等信号 -> 停机 -> 逆序释放模块
+```
+
+### 手工装配
+
+```go
+cfg := tenon.DefaultHTTPConfig()        // 默认 HTTP 配置，纯结构体，可按需修改
 cfg.Port = 8080
-server := tenon.WebServer(cfg)       // 创建服务（仅构建 gin 引擎）
-server.Router("GET", "/ping", tenon.Middleware("mark"), controller)
-v1 := server.Group("/v1")            // 路由组
-v1.Router("POST", "/users", createUserCtrl)
-server.Run()                         // 阻塞运行，收到 SIGINT/SIGTERM 后优雅停机
+server, err := web.New(cfg)             // 创建服务（仅构建 gin 引擎），配置非法返回错误
+server.GET("/ping", tenon.Middleware("mark"), controller)
+v1 := server.Group("/v1")               // 路由组
+v1.Router("POST", "/users", createUserCtrl)  // 动态方法写法保留可用
+server.Run()                            // 阻塞运行，收到 SIGINT/SIGTERM 后优雅停机
 ```
 
 ### 内置 CLI
@@ -37,7 +51,8 @@ server.Run()                         // 阻塞运行，收到 SIGINT/SIGTERM 后
 ```go
 cli := tenon.NewCli("myapp", "我的服务")
 cli.AddCommand("version", "打印版本", func() { println("v1.0.0") })  // 简单命令
-cli.Run(server)                    // 注册 server 子命令并执行
+cli.Run(server)                    // 注册 server 子命令并执行（= Serve + Execute）
+// 或只注册不执行：cli.Serve(server)，追加定制后自行 cli.Execute()
 ```
 
 带 flags、位置参数校验与嵌套子命令：
@@ -210,14 +225,32 @@ tenon.InitLog(tenon.LogConfig{
 ## 中间件
 
 ```go
-tenon.RegMiddleware("auth", authMiddleware)          // 注册
-server.Router("GET", "/me", tenon.Middleware("auth"), meCtrl)  // 按名取用
-server.Router("GET", "/ping", directMiddleware, pingCtrl)      // 也可直接传函数
+auth := tenon.RegMiddleware("auth", authMiddleware)  // 注册即返回句柄，可直接挂路由
+server.GET("/me", auth, meCtrl)                            // 句柄取用（编译期可检查）
+server.GET("/info", tenon.Middleware("auth"), infoCtrl)    // 按名取用（配置驱动场景）
+server.GET("/ping", directMiddleware, pingCtrl)            // 也可直接传函数
 ```
 
-- Router 签名：`Router(method, path, 中间件..., 控制器)`，最后一个参数为控制器
+- 路由方法糖：`GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS/ANY(path, 中间件..., 控制器)`，最后一个参数为控制器
+- 动态方法写法保留：`Router(method, path, ...)`，method 支持 GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS/ANY
+- 全局中间件：`server.Use(mw...)`——**必须在注册任何路由之前调用**（gin 的 `Use` 在已有路由注册后调用会 panic）；路由组同理 `group.Use(mw...)`
 - 未注册的名称调用 `tenon.Middleware` 会 panic（启动期错误尽早暴露）
-- method 支持 GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS/ANY
+
+## 可选能力
+
+### 请求 ID（requestid 模块）
+
+在 `WebAppOptions.Enable` 里加入 `tenon.ModuleRequestID` 启用（默认不开）：请求已携带 `X-Request-Id` 时以请求为准，缺失则生成；写入 gin context（键 `web.RequestIDKey`）与响应头。手工装配时直接 `server.Use(web.RequestIDMiddleware())`。
+
+### 请求绑定（tenon.Bind）
+
+```go
+var f createUserForm
+if err := tenon.Bind(c, &f); err != nil {   // 包装 ShouldBind，仅返回错误
+	tenon.Error(c, "参数错误")
+	return                                    // 不写响应、不中断，由调用方决定
+}
+```
 
 ## 统一响应
 
@@ -232,9 +265,10 @@ common.PageSizeCheck(page, pageSize)   // 分页参数修正
 
 ## 优雅停机
 
-`server.Run()` 阻塞等待 SIGINT/SIGTERM，收到信号后：
+`server.Run()`（或 `application.Run()`）阻塞等待 SIGINT/SIGTERM，收到信号后：
 
 1. 按超时优雅关闭 HTTP/HTTPS/QUIC 监听
 2. 按注册逆序执行 `bootstrap` 释放函数（Redis -> 数据库）
+3. WebApp 场景：随后装配层按初始化逆序执行各模块 `Release`（幂等兼容）
 
-也可手动控制：`server.Start()` 非阻塞启动，`server.Stop(timeout)` 停止。
+也可手动控制：`server.Start()` 非阻塞启动，`server.Stop(timeout)` 停止；WebApp 对应 `application.Init()` / `application.Stop(timeout)`。

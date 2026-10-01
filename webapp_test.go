@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -113,6 +114,35 @@ func TestWebAppEnableUnknown(t *testing.T) {
 		if !strings.Contains(err.Error(), name) {
 			t.Fatalf("error should contain %s: %s", name, err)
 		}
+	}
+}
+
+// 验证 requestid 模块：仅在 Enable 列出时注入 X-Request-Id。
+func TestWebAppRequestIDModule(t *testing.T) {
+	newApp := func(t *testing.T, enable ...string) *WebApp {
+		cfg := DefaultHTTPConfig()
+		cfg.Port = -1
+		w := NewWebApp(WebAppOptions{HTTP: cfg, Enable: enable})
+		w.Server().GET("/ping", func(c *gin.Context) {
+			Success(c, gin.H{"msg": "pong"})
+		})
+		return w
+	}
+	// 启用时：响应头带 X-Request-Id
+	w := newApp(t, ModuleRequestID)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	w.Server().Engine().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || rec.Header().Get("X-Request-Id") == "" {
+		t.Fatalf("requestid enabled should inject X-Request-Id: %d %q", rec.Code, rec.Header().Get("X-Request-Id"))
+	}
+	// 未启用时：无 X-Request-Id
+	w = newApp(t)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/ping", nil)
+	w.Server().Engine().ServeHTTP(rec, req)
+	if rec.Header().Get("X-Request-Id") != "" {
+		t.Fatalf("requestid disabled should not inject X-Request-Id: %q", rec.Header().Get("X-Request-Id"))
 	}
 }
 

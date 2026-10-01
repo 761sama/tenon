@@ -1,6 +1,7 @@
 package tenon
 
 import (
+	"slices"
 	"time"
 
 	"gopkg.761sama.com/tenon/app"
@@ -13,9 +14,10 @@ import (
 // 可选模块名常量：供 WebAppOptions.Enable 引用（防拼写错误）；
 // 自定义模块经 WebAppOptions.Custom 注册后用同一机制按名字符串启用。
 const (
-	ModuleLog      = "log"      // 日志模块：logx 文件切割输出（不启用则日志走 stderr）
-	ModuleDatabase = "database" // 数据库模块：database.Init（含已注册模型的自动迁移）
-	ModuleRedis    = "redis"    // Redis 模块：redis.Init
+	ModuleLog       = "log"       // 日志模块：logx 文件切割输出（不启用则日志走 stderr）
+	ModuleDatabase  = "database"  // 数据库模块：database.Init（含已注册模型的自动迁移）
+	ModuleRedis     = "redis"     // Redis 模块：redis.Init
+	ModuleRequestID = "requestid" // 请求 ID 模块：注入 X-Request-Id 中间件（无配置，默认不开）
 )
 
 // WebAppOptions Web 应用装配配置。
@@ -35,14 +37,18 @@ type WebApp struct {
 	err    error // 构造期错误（HTTP 配置非法或 Enable 清单非法），Init/Run 时返回
 }
 
-// 创建预制 Web 应用：构建 Web 服务并预注册可选模块（log/database/redis），按 Enable 清单设置启用顺序；
+// 创建预制 Web 应用：构建 Web 服务并预注册可选模块（log/database/redis/requestid），按 Enable 清单设置启用顺序；
 // 构造期错误（如 TrustedProxies 非法、Enable 含未知名或重复名）在 Init/Run 时返回。
+// requestid 中间件需在路由注册前挂载，故在构造时随 Enable 清单立即挂载，其模块 Init 为空操作。
 // 入参: opt (装配配置)
 // 出参: Web 应用实例
 func NewWebApp(opt WebAppOptions) *WebApp {
 	srv, err := web.New(opt.HTTP)
 	a := app.New("web")
 	w := &WebApp{app: a, server: srv, err: err}
+	if srv != nil && slices.Contains(opt.Enable, ModuleRequestID) {
+		srv.Engine().Use(web.RequestIDMiddleware())
+	}
 	a.Add(app.Module{Name: ModuleLog, Init: func() error {
 		return logx.Init(opt.Log, opt.HTTP.Debug)
 	}})
@@ -52,6 +58,7 @@ func NewWebApp(opt WebAppOptions) *WebApp {
 	a.Add(app.Module{Name: ModuleRedis, Init: func() error {
 		return redis.Init(opt.Redis)
 	}, Release: redis.CloseAll})
+	a.Add(app.Module{Name: ModuleRequestID, Init: func() error { return nil }})
 	for _, mod := range opt.Custom {
 		a.Add(mod)
 	}

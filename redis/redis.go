@@ -102,10 +102,13 @@ func Client() *goredis.Client {
 	return Default().Client()
 }
 
-// 关闭全部 Redis 实例连接。
+// 关闭全部 Redis 实例连接（无实例时空转）。
 func CloseAll() {
 	mu.Lock()
 	defer mu.Unlock()
+	if len(instances) == 0 {
+		return
+	}
 	for name, ins := range instances {
 		if err := ins.client.Close(); err != nil {
 			log.Errorf("failed to close redis instance %q: %s", name, err.Error())

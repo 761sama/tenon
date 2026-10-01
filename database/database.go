@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"gorm.io/gorm"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"gopkg.761sama.com/tenon/bootstrap"
 	"gopkg.761sama.com/tenon/conf"
@@ -156,10 +156,13 @@ func SafeColumnName(name string) (string, error) {
 	return Default().SafeColumnName(name)
 }
 
-// 关闭全部数据库实例连接。
+// 关闭全部数据库实例连接（无实例时空转）。
 func CloseAll() {
 	mu.Lock()
 	defer mu.Unlock()
+	if len(instances) == 0 {
+		return
+	}
 	for _, ins := range instances {
 		ins.close()
 	}

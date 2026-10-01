@@ -88,3 +88,11 @@ func Error(c *gin.Context, message string) {
 func ErrorWithCode(c *gin.Context, code ErrorCode) {
 	common.ErrorResponseWithCode(c, code)
 }
+
+// 绑定请求参数到目标结构体（包装 gin 的 ShouldBind），仅返回错误，
+// 不自动写响应、不自动中断请求（由调用方决定如何处理）。
+// 入参: c (请求上下文), dst (目标结构体指针)
+// 出参: 绑定或校验错误
+func Bind(c *gin.Context, dst any) error {
+	return web.Bind(c, dst)
+}
