@@ -4,23 +4,23 @@ import "time"
 
 // HTTPConfig 为 Web 服务配置，tenon.WebServer 仅需此配置。
 type HTTPConfig struct {
-	Debug          bool          `json:"debug"`           // 调试模式：gin 调试模式、详细错误返回
-	Address        string        `json:"address"`         // 监听地址，默认 0.0.0.0
-	Port           int           `json:"port"`            // HTTP 端口，-1 表示禁用 HTTP
-	HTTPSPort      int           `json:"https_port"`      // HTTPS 端口，-1 表示禁用 HTTPS
-	CertFile       string        `json:"cert_file"`       // TLS 证书文件路径（相对路径基于工作目录解析）
-	KeyFile        string        `json:"key_file"`        // TLS 私钥文件路径（相对路径基于工作目录解析）
-	EnableQUIC     bool          `json:"enable_quic"`     // 是否启用 QUIC (HTTP/3)，与 HTTPS 同地址监听并自动附加 Alt-Svc 响应头
-	TrustedProxies []string      `json:"trusted_proxies"` // 可信反向代理 IP/IP 段(CIDR)，为空表示不信任任何代理
-	AllowOrigins   []string      `json:"allow_origins"`   // CORS 允许的来源列表，为空表示关闭跨域，["*"] 表示允许所有来源
-	AllowMethods   []string      `json:"allow_methods"`   // CORS 允许的请求方法列表
-	AllowHeaders   []string      `json:"allow_headers"`   // CORS 允许的请求头列表
-	MaxBodySize    int64         `json:"max_body_size"`   // 请求体最大字节数，0 使用默认值 32MB，负数表示不限制
+	Debug             bool          `json:"debug"`               // 调试模式：gin 调试模式、详细错误返回
+	Address           string        `json:"address"`             // 监听地址，默认 0.0.0.0
+	Port              int           `json:"port"`                // HTTP 端口，-1 表示禁用 HTTP
+	HTTPSPort         int           `json:"https_port"`          // HTTPS 端口，-1 表示禁用 HTTPS
+	CertFile          string        `json:"cert_file"`           // TLS 证书文件路径（相对路径基于工作目录解析）
+	KeyFile           string        `json:"key_file"`            // TLS 私钥文件路径（相对路径基于工作目录解析）
+	EnableQUIC        bool          `json:"enable_quic"`         // 是否启用 QUIC (HTTP/3)，与 HTTPS 同地址监听并自动附加 Alt-Svc 响应头
+	TrustedProxies    []string      `json:"trusted_proxies"`     // 可信反向代理 IP/IP 段(CIDR)，为空表示不信任任何代理
+	AllowOrigins      []string      `json:"allow_origins"`       // CORS 允许的来源列表，为空表示关闭跨域，["*"] 表示允许所有来源
+	AllowMethods      []string      `json:"allow_methods"`       // CORS 允许的请求方法列表
+	AllowHeaders      []string      `json:"allow_headers"`       // CORS 允许的请求头列表
+	MaxBodySize       int64         `json:"max_body_size"`       // 请求体最大字节数，0 使用默认值 32MB，负数表示不限制
 	ReadHeaderTimeout time.Duration `json:"read_header_timeout"` // 读取请求头超时（防 Slowloris），0 使用默认值 10s
-	ReadTimeout    time.Duration `json:"read_timeout"`    // 读超时（纳秒），0 使用默认值 30s
-	WriteTimeout   time.Duration `json:"write_timeout"`   // 写超时（纳秒），0 使用默认值 30s
-	IdleTimeout    time.Duration `json:"idle_timeout"`    // Keep-Alive 空闲连接超时，0 使用默认值 120s
-	ShutdownTimeout time.Duration `json:"shutdown_timeout"` // 优雅停机超时（纳秒），0 使用默认值 5s
+	ReadTimeout       time.Duration `json:"read_timeout"`        // 读超时（纳秒），0 使用默认值 30s
+	WriteTimeout      time.Duration `json:"write_timeout"`       // 写超时（纳秒），0 使用默认值 30s
+	IdleTimeout       time.Duration `json:"idle_timeout"`        // Keep-Alive 空闲连接超时，0 使用默认值 120s
+	ShutdownTimeout   time.Duration `json:"shutdown_timeout"`    // 优雅停机超时（纳秒），0 使用默认值 5s
 }
 
 // 构造默认 HTTP 配置，使用方可在此基础上按需修改。
@@ -33,9 +33,9 @@ func DefaultHTTPConfig() HTTPConfig {
 		HTTPSPort:      -1,
 		TrustedProxies: []string{"127.0.0.1"},
 		// 安全基线：默认关闭跨域，需要时显式配置 AllowOrigins
-		AllowOrigins:   []string{},
-		AllowMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"},
-		AllowHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		AllowOrigins:      []string{},
+		AllowMethods:      []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"},
+		AllowHeaders:      []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		MaxBodySize:       32 << 20,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
@@ -64,18 +64,18 @@ type DatabaseConfig struct {
 
 // DBNodeConfig 为单个数据库节点配置。
 type DBNodeConfig struct {
-	Host            string        `json:"host"`              // 数据库主机
-	Port            int           `json:"port"`              // 数据库端口，0 表示使用默认端口
-	User            string        `json:"user"`              // 数据库用户
-	Password        string        `json:"password"`          // 数据库密码
-	Name            string        `json:"name"`              // 数据库名称
-	DBFile          string        `json:"db_file"`           // SQLite 文件路径（相对路径基于工作目录解析）
-	SSLMode         string        `json:"ssl_mode"`          // SSL 模式（MySQL 暂不使用，预留给 Postgres 系）
-	TablePrefix     string        `json:"table_prefix"`      // 表前缀（仅主库生效）
-	MaxOpenConns    int           `json:"max_open_conns"`    // 最大打开连接数，0 使用类型默认值（mysql 50 / sqlite 1）
-	MaxIdleConns    int           `json:"max_idle_conns"`    // 最大空闲连接数，0 使用类型默认值（mysql 10）
-	ConnMaxLifetime time.Duration `json:"conn_max_lifetime"` // 连接最大存活时间（纳秒），0 使用类型默认值（mysql 1h）
-	ConnMaxIdleTime time.Duration `json:"conn_max_idle_time"`// 连接最大空闲时间（纳秒），0 使用类型默认值（mysql 10m）
+	Host            string        `json:"host"`               // 数据库主机
+	Port            int           `json:"port"`               // 数据库端口，0 表示使用默认端口
+	User            string        `json:"user"`               // 数据库用户
+	Password        string        `json:"password"`           // 数据库密码
+	Name            string        `json:"name"`               // 数据库名称
+	DBFile          string        `json:"db_file"`            // SQLite 文件路径（相对路径基于工作目录解析）
+	SSLMode         string        `json:"ssl_mode"`           // SSL 模式（MySQL 暂不使用，预留给 Postgres 系）
+	TablePrefix     string        `json:"table_prefix"`       // 表前缀（仅主库生效）
+	MaxOpenConns    int           `json:"max_open_conns"`     // 最大打开连接数，0 使用类型默认值（mysql 50 / sqlite 1）
+	MaxIdleConns    int           `json:"max_idle_conns"`     // 最大空闲连接数，0 使用类型默认值（mysql 10）
+	ConnMaxLifetime time.Duration `json:"conn_max_lifetime"`  // 连接最大存活时间（纳秒），0 使用类型默认值（mysql 1h）
+	ConnMaxIdleTime time.Duration `json:"conn_max_idle_time"` // 连接最大空闲时间（纳秒），0 使用类型默认值（mysql 10m）
 }
 
 // RedisConfig 为 Redis 配置（供 tenon.Redis.Init 显式初始化使用）。

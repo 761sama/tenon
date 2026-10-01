@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/glebarez/sqlite"
+	mysqldriver "github.com/go-sql-driver/mysql"
+	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
-	"github.com/glebarez/sqlite"
-	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/plugin/dbresolver"
-	mysqldriver "github.com/go-sql-driver/mysql"
 
 	"gopkg.761sama.com/tenon/conf"
 )

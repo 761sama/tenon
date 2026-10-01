@@ -57,7 +57,9 @@ func (Ops) SetWithTTL(value string, ttl time.Duration, key ...string) error {
 }
 
 // 列表范围读取。
-func (Ops) LGet(start, stop int64, key ...string) ([]string, error) { return Default().LGet(start, stop, key...) }
+func (Ops) LGet(start, stop int64, key ...string) ([]string, error) {
+	return Default().LGet(start, stop, key...)
+}
 
 // 列表全部读取。
 func (Ops) LGetAll(key ...string) ([]string, error) { return Default().LGetAll(key...) }
@@ -93,7 +95,9 @@ func (Ops) SHas(member string, key ...string) (bool, error) { return Default().S
 func (Ops) ZAdd(values []goredis.Z, key ...string) error { return Default().ZAdd(values, key...) }
 
 // 有序集合范围读取（含分数）。
-func (Ops) ZGet(start, stop int64, key ...string) ([]goredis.Z, error) { return Default().ZGet(start, stop, key...) }
+func (Ops) ZGet(start, stop int64, key ...string) ([]goredis.Z, error) {
+	return Default().ZGet(start, stop, key...)
+}
 
 // 有序集合全部读取（含分数）。
 func (Ops) ZGetAll(key ...string) ([]goredis.Z, error) { return Default().ZGetAll(key...) }
@@ -179,16 +183,22 @@ func (i *Instance) LLPop(key ...string) (string, error) { return llpop(i.client,
 func (i *Instance) LRPop(key ...string) (string, error) { return lrpop(i.client, key...) }
 
 // 列表左推入。
-func (i *Instance) LLPush(values []string, key ...string) error { return llpush(i.client, values, key...) }
+func (i *Instance) LLPush(values []string, key ...string) error {
+	return llpush(i.client, values, key...)
+}
 
 // 列表右推入。
-func (i *Instance) LRPush(values []string, key ...string) error { return lrpush(i.client, values, key...) }
+func (i *Instance) LRPush(values []string, key ...string) error {
+	return lrpush(i.client, values, key...)
+}
 
 // 列表长度。
 func (i *Instance) LLen(key ...string) (int64, error) { return llen(i.client, key...) }
 
 // 列表截断。
-func (i *Instance) LTrim(start, stop int64, key ...string) error { return ltrim(i.client, start, stop, key...) }
+func (i *Instance) LTrim(start, stop int64, key ...string) error {
+	return ltrim(i.client, start, stop, key...)
+}
 
 // 集合添加。
 func (i *Instance) SAdd(values []string, key ...string) error { return sadd(i.client, values, key...) }
@@ -197,10 +207,14 @@ func (i *Instance) SAdd(values []string, key ...string) error { return sadd(i.cl
 func (i *Instance) SGet(key ...string) ([]string, error) { return sget(i.client, key...) }
 
 // 集合判断存在。
-func (i *Instance) SHas(member string, key ...string) (bool, error) { return shas(i.client, member, key...) }
+func (i *Instance) SHas(member string, key ...string) (bool, error) {
+	return shas(i.client, member, key...)
+}
 
 // 有序集合添加。
-func (i *Instance) ZAdd(values []goredis.Z, key ...string) error { return zadd(i.client, values, key...) }
+func (i *Instance) ZAdd(values []goredis.Z, key ...string) error {
+	return zadd(i.client, values, key...)
+}
 
 // 有序集合范围读取（含分数）。
 func (i *Instance) ZGet(start, stop int64, key ...string) ([]goredis.Z, error) {
@@ -217,7 +231,9 @@ func (i *Instance) ZCount(key ...string) (int64, error) { return zcount(i.client
 func (i *Instance) HSet(value any, key ...string) error { return hset(i.client, value, key...) }
 
 // 哈希单个字段。
-func (i *Instance) HGet(field string, key ...string) (any, error) { return hget(i.client, field, key...) }
+func (i *Instance) HGet(field string, key ...string) (any, error) {
+	return hget(i.client, field, key...)
+}
 
 // 哈希全部字段。
 func (i *Instance) HGetAll(key ...string) (map[string]any, error) { return hgetall(i.client, key...) }
@@ -237,7 +253,9 @@ func (i *Instance) Exists(key ...string) (bool, error) { return exists(i.client,
 func (i *Instance) Incr(key ...string) (int64, error) { return incr(i.client, key...) }
 
 // 键值增加指定值。
-func (i *Instance) IncrBy(value int64, key ...string) (int64, error) { return incrBy(i.client, value, key...) }
+func (i *Instance) IncrBy(value int64, key ...string) (int64, error) {
+	return incrBy(i.client, value, key...)
+}
 
 // 原子自增并在键首次创建时设置过期时间（键已存在则不重复设置 TTL），用于限流计数等场景。
 func (i *Instance) IncrWithTTL(ttl time.Duration, key ...string) (int64, error) {
@@ -248,7 +266,9 @@ func (i *Instance) IncrWithTTL(ttl time.Duration, key ...string) (int64, error) 
 func (i *Instance) Keys(pattern ...string) ([]string, error) { return keys(i.client, pattern...) }
 
 // 设置过期时间。
-func (i *Instance) SetTTL(ttl time.Duration, key ...string) error { return setTTL(i.client, ttl, key...) }
+func (i *Instance) SetTTL(ttl time.Duration, key ...string) error {
+	return setTTL(i.client, ttl, key...)
+}
 
 // 获取过期时间。
 func (i *Instance) GetTTL(key ...string) (time.Duration, error) { return getTTL(i.client, key...) }

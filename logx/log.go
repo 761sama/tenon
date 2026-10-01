@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/natefinch/lumberjack"
+	log "github.com/sirupsen/logrus"
 
 	"gopkg.761sama.com/tenon/conf"
 )
