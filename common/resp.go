@@ -2,17 +2,19 @@ package common
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
 
-var debug bool
+// debug 全局调试开关：构造期写、请求期读，原子操作保证跨 goroutine 安全
+var debug atomic.Bool
 
 // 设置调试模式（由 web 服务初始化时调用）：调试模式下底层错误原样返回。
 // 入参: d (是否调试模式)
 func SetDebug(d bool) {
-	debug = d
+	debug.Store(d)
 }
 
 // ResponseType 统一响应结构。
@@ -74,7 +76,7 @@ func MaskError(err error, message string) error {
 	if err == nil {
 		return nil
 	}
-	if debug {
+	if debug.Load() {
 		return err
 	}
 	log.Errorf("%s: %+v", message, err)
